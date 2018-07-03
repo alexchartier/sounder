@@ -15,7 +15,7 @@ import numpy as np
 import time 
 from gnuradio import uhd
 
-def step(usrp, op, ch_num=0, sleeptime = 0.001):
+def step(usrp, op, ch_num=0, sleeptime=0.5):
     """ Step the USRP's oscillator through a list of frequencies """
 
     freq_list = set_freq_list()
