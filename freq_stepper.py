@@ -58,8 +58,8 @@ def step(
             if out_fname:
                 tune_time = drf.util.sample_to_datetime(tune_time_rsamples, op.samplerate)
                 tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
-                with open(out_fname, 'a') as f:
-                    f.write('%s %s %i\n' % (tune_time.strftime('%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
+                with open(tune_time.strftime(out_fname), 'a') as f:
+                    f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
            
             usrp.set_command_time(
                                   uhd.time_spec(float(tune_time_secs)),

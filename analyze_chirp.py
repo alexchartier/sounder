@@ -26,6 +26,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import scipy.signal
+import pandas
 
 import digital_rf as drf
 import pdb
@@ -133,6 +134,33 @@ def analyze_prc(
     return(ret)
 
 
+def read_log(logfile):
+    with open(logfile, 'r') as f:
+        times = []
+        freqs = []
+        samples = []
+        for line in f:
+            if line[:4] == 'Tune':
+                continue
+            else:
+                vals = line.split()
+                times.append(datetime.datetime.strptime(vals[0], '%Y/%m/%d-%H:%M:%S.%f'))
+                freqs.append(float(vals[1]))
+                samples.append(int(vals[2]))
+    times = np.array(times)
+    freqs = np.array(freqs)
+    samples = np.array(samples)
+
+    time = times[:-1] + (times[1:] - times[:-1]) / 2
+    data = {
+            'freq': freqs[:-1],
+             'idx': samples[:-1],
+           'anlen': samples[1:] - samples[:-1],
+            }
+    df = pandas.DataFrame(data, index=time)
+    return df
+     
+
 if __name__ == '__main__':
     import matplotlib
     # matplotlib.use('Agg')
@@ -166,8 +194,8 @@ if __name__ == '__main__':
         help='''Delete existing processed files.''',
     )
     parser.add_argument(
-        '-n', '--analysis_length', dest='anlen', type=int, default=6000000,
-        help='''Analysis length. (default: %(default)s)''',
+        '-n', '--logfile', dest='logfile', type=str, default='freq.log',
+        help='''Frequency sample log file produced by tx_chirp.py (default: %(default)s)''',
     )
     parser.add_argument(
         '-l', '--code_length', dest='codelen', type=int, default=10000,
@@ -185,6 +213,7 @@ if __name__ == '__main__':
     op = parser.parse_args()
 
     op.datadir = os.path.abspath(op.datadir)
+
     # join outdir to datadir to allow for relative path, normalize
     op.outdir = os.path.abspath(op.outdir.format(datadir=op.datadir))
     if not os.path.isdir(op.outdir):
@@ -197,26 +226,18 @@ if __name__ == '__main__':
         ):
             os.remove(f)
 
-    # >>>>>>>>
     data = drf.DigitalRFReader(op.datadir)
     sr = data.get_properties(op.ch)['samples_per_second']
     b = data.get_bounds(op.ch)
-    idx = np.array(b[0])
-    if os.path.isfile(datpath):
-        fidx = np.fromfile(datpath, dtype=np.int)
-        if b[0] <= fidx:
-            idx = fidx
 
-    while True:
-        if idx + op.anlen > b[1]:
-            print('waiting for more data, sleeping.')
-            time.sleep(op.anlen / sr)
-            b = data.get_bounds(op.ch)
-            continue
-
+    # Define indexing according to the chirp log file
+    idx_data = read_log(op.logfile)
+    
+    for time, row in idx_data.iterrows():
         try:
+            idx = np.array(int(row['idx']))
             res = analyze_prc(
-                data, channel=op.ch, idx0=idx, an_len=op.anlen, clen=op.codelen,
+                data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,
                 station=op.station, Nranges=op.nranges,
                 cache=True, rfi_rem=False,
                 )
@@ -226,18 +247,16 @@ if __name__ == '__main__':
             plt.pcolormesh(np.transpose(M), vmin=(np.median(M) - 1.0))
 
             plt.colorbar()
-            plt.title(
-                datetime.datetime.utcfromtimestamp(idx / sr).strftime(
-                    '%Y-%m-%d %H:%M:%S'
-                )
-            )
+            
+            timestr = time.strftime('%Y-%m-%d %H:%M:%S')
+            plt.title('%s %f MHz' % (timestr, row['freq']))
+            plt.ylabel('Range?')
+            plt.xlabel('Doppler?')
             plt.savefig(os.path.join(
                 op.outdir, 'spec-{0:06d}.png'.format(int(np.uint64(idx / sr))),
             ))
-            print('%d' % (idx))
+            print('%s' % timestr)
         except IOError:
             print('IOError, skipping.')
-        idx = idx + op.anlen
-        idx.tofile(datpath)
     
     # <<<<<<<<<<<<<<

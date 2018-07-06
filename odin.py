@@ -31,6 +31,7 @@ from gnuradio import blocks, filter as grfilter, gr, uhd
 
 import digital_rf as drf
 import gr_digital_rf as gr_drf
+
 import freq_stepper
 import pdb
 
@@ -977,7 +978,8 @@ class Thor(object):
         fg.start()
 
         # Step through freqs
-        freq_stepper.step(usrp, op, out_fname='tune_times.txt')
+        chirplog_fname = (os.path.join(op.datadir, op.channel_names[ko]) + '/%Y%m%d_chirp.log')
+        freq_stepper.step(usrp, op, out_fname=chirplog_fname)
         
         # wait until end time or until flowgraph stops
         if et is None and duration is not None:
@@ -987,7 +989,7 @@ class Thor(object):
                 fg.wait()
             else:
                 # sleep until end time nears
-                while(pytz.utc.localize(datetime.utcnow()) <
+                while (pytz.utc.localize(datetime.utcnow()) <
                         et - timedelta(seconds=2)):
                     time.sleep(1)
                 else:
