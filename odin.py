@@ -32,7 +32,7 @@ from gnuradio import blocks, filter as grfilter, gr, uhd
 import digital_rf as drf
 import gr_digital_rf as gr_drf
 import freq_stepper
-
+import pdb
 
 def equiripple_lpf(
     cutoff=0.45, transition_width=0.1, attenuation=80, pass_ripple=None,
@@ -831,7 +831,7 @@ class Thor(object):
             # make frequency shift block if necessary
             if ch_centerfreq is not False:
                 f_shift = ch_centerfreq - op.centerfreqs[kr]
-                phase_inc = -2*np.pi*f_shift/ch_samplerate_frac
+                phase_inc = -2 * np.pi * f_shift / ch_samplerate_frac
                 rotator = blocks.rotator_cc(phase_inc)
             else:
                 ch_centerfreq = op.centerfreqs[kr]
@@ -977,7 +977,7 @@ class Thor(object):
         fg.start()
 
         # Step through freqs
-        freq_stepper.step(usrp, op)
+        freq_stepper.step(usrp, op, out_fname='tune_times.txt')
         
         # wait until end time or until flowgraph stops
         if et is None and duration is not None:

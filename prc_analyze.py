@@ -30,6 +30,7 @@ import scipy.signal
 import digital_rf as drf
 import pdb
 
+
 def create_pseudo_random_code(clen=10000, seed=0):
     """
     seed is a way of reproducing the random code without
@@ -134,7 +135,7 @@ def analyze_prc(
 
 if __name__ == '__main__':
     import matplotlib
-    matplotlib.use('Agg')
+    # matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
     desc = """Script for analyzing pseudorandom-coded waveforms.
@@ -196,9 +197,10 @@ if __name__ == '__main__':
         ):
             os.remove(f)
 
-    d = drf.DigitalRFReader(op.datadir)
-    sr = d.get_properties(op.ch)['samples_per_second']
-    b = d.get_bounds(op.ch)
+    # >>>>>>>>
+    data = drf.DigitalRFReader(op.datadir)
+    sr = data.get_properties(op.ch)['samples_per_second']
+    b = data.get_bounds(op.ch)
     idx = np.array(b[0])
     if os.path.isfile(datpath):
         fidx = np.fromfile(datpath, dtype=np.int)
@@ -209,12 +211,12 @@ if __name__ == '__main__':
         if idx + op.anlen > b[1]:
             print('waiting for more data, sleeping.')
             time.sleep(op.anlen / sr)
-            b = d.get_bounds(op.ch)
+            b = data.get_bounds(op.ch)
             continue
 
         try:
             res = analyze_prc(
-                d, channel=op.ch, idx0=idx, an_len=op.anlen, clen=op.codelen,
+                data, channel=op.ch, idx0=idx, an_len=op.anlen, clen=op.codelen,
                 station=op.station, Nranges=op.nranges,
                 cache=True, rfi_rem=False,
                 )
@@ -237,3 +239,5 @@ if __name__ == '__main__':
             print('IOError, skipping.')
         idx = idx + op.anlen
         idx.tofile(datpath)
+    
+    # <<<<<<<<<<<<<<
