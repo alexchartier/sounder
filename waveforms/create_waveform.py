@@ -33,7 +33,7 @@ def create_pseudo_random_code(clen=10000, seed=0):
     phases = numpy.array(
         numpy.exp(1.0j * 2.0 * math.pi * numpy.random.random(clen)),
         dtype=numpy.complex64,
-        )
+    )
     return(phases)
 
 
@@ -55,11 +55,12 @@ def rep_seq(x, rep=10):
 #
 def waveform_to_file(
     station=0, clen=10000, oversample=10, filter_output=False,
-    ):
+):
     a = rep_seq(
         create_pseudo_random_code(clen=clen, seed=station),
         rep=oversample,
-        )
+    )
+
     if filter_output:
         w = numpy.zeros([oversample * clen], dtype=numpy.complex64)
         fl = (int(oversample + (0.1 * oversample)))
@@ -98,4 +99,4 @@ if __name__ == '__main__':
     waveform_to_file(
         station=op.station, clen=op.length, oversample=op.oversampling,
         filter_output=op.filter,
-        )
+    )
