@@ -14,26 +14,55 @@ from datetime import datetime, timedelta
 import numpy as np 
 import time 
 from gnuradio import uhd
+import digital_rf as drf
 
-def step(usrp, op, ch_num=0, sleeptime = 0.001):
+
+def step(
+         usrp, op, ch_num=0, 
+                   sleeptime=0.5, 
+                   out_fname=None
+        ):
     """ Step the USRP's oscillator through a list of frequencies """
 
     freq_list = set_freq_list()
-    epoch_start = datetime(1970, 1, 1)
-    timestr = '%H:%M:%S.%f'
+    if out_fname:
+        with open(out_fname, 'a') as f:
+            f.write('Tune time (UT)   Freq (MHz)   Tune sample\n')
 
     # Begin infinite transmission loop
     freq = 0
     while 1:
         gpstime_secs = usrp.get_time_now().get_real_secs()
-        gpstime = epoch_start + timedelta(seconds=gpstime_secs)
-        gpstime_next = epoch_start + timedelta(seconds=gpstime_secs + 1)
+        gpstime = drf.util.epoch + timedelta(seconds=gpstime_secs)
+        gpstime_next = drf.util.epoch + timedelta(seconds=gpstime_secs + 1)
+
         # Change frequency each time we hit a new time in the list, otherwise hold the existing note
         if ((gpstime_next.second) in freq_list.keys()) and (freq != freq_list[gpstime_next.second]):
             freq = freq_list[gpstime_next.second]
 
+            # Specify tune time on the first exact sample after listed time
+            tune_time_secs = np.ceil(gpstime_secs)
+            try:  
+                ch_samplerate_frac = op.ch_samplerates_frac[ch_num]
+                ch_samplerate_ld = (
+                    np.longdouble(ch_samplerate_frac.numerator)
+                    / np.longdouble(ch_samplerate_frac.denominator)
+                )
+            except:
+                ch_samplerate_ld = op.samplerate
+
+            tune_time_rsamples = np.ceil(tune_time_secs * op.samplerate)
+            tune_time_secs = tune_time_rsamples / op.samplerate
+
+            # Optionally write out the shift samples of each frequency
+            if out_fname:
+                tune_time = drf.util.sample_to_datetime(tune_time_rsamples, op.samplerate)
+                tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
+                with open(tune_time.strftime(out_fname), 'a') as f:
+                    f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
+           
             usrp.set_command_time(
-                                  uhd.time_spec(np.ceil(gpstime_secs)),
+                                  uhd.time_spec(float(tune_time_secs)),
                                   uhd.ALL_MBOARDS,
                                   )
 
@@ -43,12 +72,14 @@ def step(usrp, op, ch_num=0, sleeptime = 0.001):
                                              args=uhd.device_addr(','.join(op.tune_args)),
                                             ),
                             ch_num,
-                                           )
+            )
 
             usrp.clear_command_time(uhd.ALL_MBOARDS)
             gpstime_secs = usrp.get_time_now().get_real_secs()
-            gpstime = epoch_start + timedelta(seconds=gpstime_secs)
-            print('Tuned to %s MHz by GPS time %s' % (str(freq).rjust(4), gpstime.strftime(timestr)))
+            gpstime = drf.util.epoch + timedelta(seconds=gpstime_secs)
+            if freq == np.min(freq_list.values()):
+                print('\n')
+            print('Tuned to %s MHz by GPS time %s' % (str(freq).rjust(4), gpstime.strftime('%H:%M:%S.%f')))
 
         time.sleep(sleeptime)
 

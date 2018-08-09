@@ -22,6 +22,7 @@ from argparse import ArgumentParser
 
 import numpy
 import scipy.signal
+import pdb
 
 
 # seed is a way of reproducing the random code without
@@ -59,6 +60,7 @@ def waveform_to_file(
         create_pseudo_random_code(clen=clen, seed=station),
         rep=oversample,
     )
+
     if filter_output:
         w = numpy.zeros([oversample * clen], dtype=numpy.complex64)
         fl = (int(oversample + (0.1 * oversample)))
