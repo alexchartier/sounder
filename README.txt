@@ -16,3 +16,9 @@ odin.py -m 192.168.30.2 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 -i 10 ~/data/prc
 
 # analysis
 python prc_analyze.py /data/prc -c hfrx -l 10000 -s 0
+
+
+# Chirpsounder Operating instructions
+ 	1. Edit /etc/network/interfaces and add the etc_network_interfaces to it
+	2. Add the crontab line listed in run_tx to crontab -e
+	3. tail -f run_tx.log
