@@ -77,9 +77,10 @@ def step(
             usrp.clear_command_time(uhd.ALL_MBOARDS)
             gpstime_secs = usrp.get_time_now().get_real_secs()
             gpstime = drf.util.epoch + timedelta(seconds=gpstime_secs)
-            if freq == np.min(freq_list.values()):
-                print('\n')
-            print('Tuned to %s MHz by GPS time %s' % (str(freq).rjust(4), gpstime.strftime('%H:%M:%S.%f')))
+            if op.verbose:
+                if freq == np.min(freq_list.values()):
+                    print('\n')
+                print('Tuned to %s MHz by GPS time %s' % (str(freq).rjust(4), gpstime.strftime('%H:%M:%S.%f')))
 
         time.sleep(sleeptime)
 
@@ -87,6 +88,39 @@ def step(
 def set_freq_list():
     # time, freq (MHz)
     # This could be set in a text file, but it's important to understand the function above when choosing times
+    return {
+             0: 4.5,
+             2: 4.6,
+             4: 4.7,
+             6: 4.8,
+             8: 4.9,
+            10: 5,
+            12: 5.1,
+            14: 5.2,
+            16: 5.3,
+            18: 5.4,
+            20: 5.5,
+            22: 4.6,
+            24: 4.7,
+            26: 4.8,
+            28: 4.9,
+            30: 5,
+            32: 5.1,
+            34: 5.2,
+            36: 5.3,
+            38: 5.4,
+            40: 5.5,
+            42: 4.6,
+            44: 4.7,
+            46: 4.8,
+            48: 4.9,
+            50: 5,
+            52: 5.1,
+            54: 5.2,
+            56: 5.3,
+            58: 5.4,
+           }
+    """
     return {
              0: 2,
              1: 2.5,
@@ -111,5 +145,6 @@ def set_freq_list():
             20: 12,
             21: 5,
            }
+    """
 
 

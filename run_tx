@@ -1,5 +1,5 @@
 #!/bin/sh
-# Add the following to crontab -e to run this every minute * * * * * /home/alex/sounder_code/run_tx > /home/alex/sounder_code/run_tx.log &
+# Add the following to crontab -e to run this every minute * * * * * /home/alex/sounder_code/run_tx >> /home/alex/sounder_code/run_tx.log &
 echo "Started run_tx - tail -f /var/log/syslog for more information"
 #while :
 #do
@@ -7,11 +7,10 @@ current_time="`date +%Y%m%d%H%M`";
 if ! pgrep -x "python" > /dev/null
 then
     echo "tx_chirp.py not running, launching at ${current_time}"
-    nohup nice -19 python /home/alex/sounder_code/tx_chirp.py -m 192.168.10.2 -d "A:A" -f 3.6e6 -G 0.25 -g 0 -r 1e6 /home/alex/sounder_code/waveforms/code-l1000-b100-000000f.bin & 
+    python /home/alex/sounder_code/tx_chirp.py -m 192.168.10.2 -d "A:A" -f 3.6e6 -G 0.25 -g 0 -r 1e6 /home/alex/sounder_code/waveforms/code-l1000-b100-000000f.bin > /home/alex/sounder_code/tx_chirp.log & 
 else :
     pid="`pgrep -x python`"
     echo "tx_chirp.py running at ${current_time} as pid ${pid}"
-    sleep 60
 fi
 #done
 exit 0

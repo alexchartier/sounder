@@ -32,7 +32,7 @@ import digital_rf as drf
 import pdb
 
 
-def create_pseudo_random_code(clen=10000, seed=0):
+def create_pseudo_random_code(clen=1000, seed=0):
     """
     seed is a way of reproducing the random code without
     having to store all actual codes. the seed can then
