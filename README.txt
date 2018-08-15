@@ -25,16 +25,17 @@ odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 -i 10 ~/data/prc
 # analysis
 python prc_analyze.py /data/prc -c hfrx -l 10000 -s 0
 
-
 # Automated running
 # See run_tx. Automated running is achieved by: 
-        1. Set the computer's BIOS to turn on after power outage 
+    1. Set the computer's BIOS to turn on after power outage 
             (press f2 during reboot, then go to power management)
-        2. Edit the crontab (crontab -e) to specify automated running of the transmit/receive code
-        3. tail -f the log files to see what's happening
+ 	2. Edit /etc/network/interfaces and add the etc_network_interfaces to it
+	3. Add the crontab line listed in run_tx to crontab -e
+	4. tail -f run_tx.log
 
 # Networking with USB ethernet dongle
     For plugable USB ethernet adapter:
     Drivers available from http://www.asix.com.tw/products.php?op=pItemdetail&PItemID=131;71;112
     Also available in the repository - plugable_drivers.tar.gz
     Follow README instructions in there - note I did not need the modprobe usbnet command
+
