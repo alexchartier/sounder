@@ -33,7 +33,7 @@ Then: Build gnuradio with the new UHD
 
 Then: If USRP is not on original IP, or if IP needs changing
     Set USRP to 192.168.10.2 by holding s2 hardware switch inside box while powercycling 
-    cd /usr/lib/uhd/utilsA
+    cd /usr/lib/uhd/utils
     ./usrp_burn_mb_eeprom --values="ip-addr=192.168.10.3"
 
 

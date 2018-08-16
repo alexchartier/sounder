@@ -23,7 +23,7 @@ python tx_chirp.py -m 192.168.10.2 -d "A:A" -f 3.6e6 -G 0.25 -g 0 -r 1e6 code-l1
 odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 -i 10 ~/data/prc
 
 # analysis
-python prc_analyze.py /data/prc -c hfrx -l 10000 -s 0
+python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
 
 # Automated running
 # See run_tx. Automated running is achieved by: 

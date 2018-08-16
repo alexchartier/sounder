@@ -230,7 +230,8 @@ if __name__ == '__main__':
     sr = data.get_properties(op.ch)['samples_per_second']
     b = data.get_bounds(op.ch)
 
-    # Define indexing according to the chirp log file
+    # Define indexing according to the frequency stepping log file
+    op.logfile = time.strftime(os.path.join(os.path.join(op.datadir, op.ch), op.logfile))
     idx_data = read_log(op.logfile)
     
     for time, row in idx_data.iterrows():

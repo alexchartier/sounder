@@ -978,8 +978,8 @@ class Thor(object):
         fg.start()
 
         # Step through freqs
-        chirplog_fname = (os.path.join(op.datadir, op.channel_names[ko]) + '/%Y%m%d_chirp.log')
-        freq_stepper.step(usrp, op, out_fname=chirplog_fname)
+        freqstep_log_fname = time.strftime(os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log')
+        freq_stepper.step(usrp, op, out_fname=freqstep_log_fname)
         
         # wait until end time or until flowgraph stops
         if et is None and duration is not None:
@@ -1393,7 +1393,7 @@ def _build_thor_parser(Parser, *args):
     width = formatter._width
 
     title = 'Odin (Son of THOR)'
-    copyright = 'Copyright (c) 2017 Massachusetts Institute of Technology'
+    copyright = 'Copyright (c) 2017 Massachusetts Institute of Technology & (c) 2018 Johns Hopkins APL'
     shortdesc = 'Record data from synchronized USRPs in DigitalRF format.'
     desc = '\n'.join((
         '*'*width,
