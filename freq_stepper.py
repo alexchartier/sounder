@@ -21,7 +21,7 @@ def step(
          usrp, op, ch_num=0, 
                    sleeptime=0.5, 
                    out_fname=None
-        ):
+    ):
     """ Step the USRP's oscillator through a list of frequencies """
 
     freq_list = set_freq_list()
@@ -60,11 +60,11 @@ def step(
                 tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
                 with open(tune_time.strftime(out_fname), 'a') as f:
                     f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
-           
+          
             usrp.set_command_time(
                                   uhd.time_spec(float(tune_time_secs)),
                                   uhd.ALL_MBOARDS,
-                                  )
+            )
 
             # Tune to the next frequency in the list
             tune_res = usrp.set_center_freq(
