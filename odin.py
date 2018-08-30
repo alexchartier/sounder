@@ -1268,7 +1268,7 @@ def _add_ochannel_group(parser):
         type=evalint,
         help='''DEPRECATED: use +r/--ch_samplerate instead. If used,
                 all ch_samplerate arguments will be ignored!
-                Integrate and decimate by an output channel by this factor
+                Integrate and decimate an output channel by this factor
                 using a low-pass filter (specifications supplied by lpf_*
                 options). (default: 1)''',
     )

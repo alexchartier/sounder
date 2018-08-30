@@ -19,6 +19,8 @@
                  c) the code optionally removes RFI by "whitening" the signal
     
 
+# Questions for Juha:
+    1. Can the transmitter lose lock and keep on transmitting?
 
 # Before running the following code:
      install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point

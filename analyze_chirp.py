@@ -111,7 +111,7 @@ def analyze_prc(
     N = an_len / clen  # What is N? Number of waveform repetitions in the signal
     res = np.zeros([N, Nranges], dtype=np.complex64)
     r = create_estimation_matrix(code=code, cache=cache, rmax=Nranges)
-    B = r['B']  # B is the estimation matrix
+    B = r['B']  # B is the estimation matrix?
     spec = np.zeros([N, Nranges], dtype=np.complex64)
 
     for i in np.arange(N):
@@ -120,7 +120,7 @@ def analyze_prc(
         res[i, :] = np.dot(B, z)
     for i in np.arange(Nranges):
         spec[:, i] = np.fft.fftshift(np.fft.fft(
-            scipy.signal.blackmanharris(N) * res[:, i]
+            scipy.signal.blackmanharris(N) * res[:, i]  # Gaussian pulse shaping reduces out-of-band emissions
         ))
 
     if rfi_rem:
@@ -132,6 +132,7 @@ def analyze_prc(
     ret = {}
     ret['res'] = res
     ret['spec'] = spec
+
     return(ret)
 
 
@@ -244,17 +245,29 @@ if __name__ == '__main__':
                 station=op.station, Nranges=op.nranges,
                 cache=True, rfi_rem=False,
                 )
+
             plt.clf()
 
             M = 10.0 * np.log10((np.abs(res['spec'])))
-            plt.pcolormesh(np.transpose(M), vmin=(np.median(M) - 1.0))
 
-            plt.colorbar()
+            ######### experimental axis-labelling code
+            baud_len_secs = 1 / (sr) * 10  # assuming 10x oversampling
+            rangegate_len_km = baud_len_secs * 3E5
+            range_km = np.arange(M.shape[1]) * rangegate_len_km
+            doppler_freq_hz = np.fft.fftshift(np.fft.fftfreq(M.shape[0], d=op.codelen/sr))  
+            carrier_wlen = 3E8 / (row['freq'] * 1E6)
+            doppler_vel_ms = doppler_freq_hz * carrier_wlen
+            
+            plt.pcolormesh(doppler_vel_ms, range_km, np.transpose(M), vmin=(np.median(M) - 1.0))
+            plt.ylabel('range (km)')
+            plt.xlabel('Doppler velocity (m/s)')
+            clb = plt.colorbar()
+            clb.set_label('Intensity / dB')
+
+            ######### 
             
             timestr = time.strftime('%Y-%m-%d %H:%M:%S')
             plt.title('%s %f MHz' % (timestr, row['freq']))
-            plt.ylabel('Range?')
-            plt.xlabel('Doppler?')
             plt.savefig(os.path.join(
                 op.outdir, 'spec-{0:06d}.png'.format(int(np.uint64(idx / sr))),
             ))
