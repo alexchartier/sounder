@@ -5,6 +5,21 @@
 # Coded continuous wave meteor radar, Atmos. Meas. Tech., 9, 829-839,
 # doi:10.5194/amt-9-829-2016, 2016.
 
+# In standard mode, 
+    tx.py transmits a coded continuous wave made up of "l" bauds (usually 10x oversampled) at a specified sample rate. 
+    thor.py records on a specified frequency at a specified sample rate. 
+    prc_analyze.py analyzes the recordings for a specified number of ranges by convolving the coded wave with the received signal:
+
+        1. Create estimation matrix B based on applying coded wave to signal in each range-gate 
+        2. dot B and the signal (z) to get your output at each range. 
+        3. Do an fft of each range-gate to get power in range-frequency coordinates
+
+    other stuff: a) the code removes a DC offset from the signal, 
+                 b) A blackman-harris window is applied to filter the signal
+                 c) the code optionally removes RFI by "whitening" the signal
+    
+
+
 # Before running the following code:
      install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
      sudo ldconfig
@@ -20,10 +35,12 @@ python create_waveform.py -l 10000 -b 10 -s 0
 python tx_chirp.py -m 192.168.10.2 -d "A:A" -f 3.6e6 -G 0.25 -g 0 -r 1e6 code-l10000-b10-000000.bin
 
 # rx
-odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 -i 10 ~/data/prc
+odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 ~/data/prc
 
 # analysis
 python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
+
+-c channel, -l code length, -r samplerate, -s starttime, 
 
 # Automated running
 # See run_tx. Automated running is achieved by: 

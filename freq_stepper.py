@@ -42,7 +42,6 @@ def step(
 
             # Specify tune time on the first exact sample after listed time
             tune_time_secs = np.ceil(gpstime_secs)
-            print('started processing at %s. Initial tune_time_secs: %i' % (gpstime_secs, tune_time_secs))
 
             # Calculate the samplerate
             try:  
@@ -56,8 +55,6 @@ def step(
 
             tune_time_rsamples = np.ceil(tune_time_secs * op.samplerate)
             tune_time_secs = tune_time_rsamples / op.samplerate
-            print('tune_time_secs: %i. tune_time_rsamples: %i, op.samplerate: %i' %\
-                        (tune_time_secs, tune_time_rsamples, op.samplerate))
 
             # Optionally write out the shift samples of each frequency
             if out_fname:
@@ -66,13 +63,11 @@ def step(
                 with open(tune_time.strftime(out_fname), 'a') as f:
                     f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
            
-            print('Before set_command_time: %f' % usrp.get_time_now().get_real_secs())
             usrp.set_command_time(
                                   uhd.time_spec(float(tune_time_secs)),
                                   uhd.ALL_MBOARDS,
             )
 
-            print('Ready to send tune request at %f' % usrp.get_time_now().get_real_secs())
             # Tune to the next frequency in the list
             tune_res = usrp.set_center_freq(
                             uhd.tune_request(freq * 1E6, op.lo_offsets[ch_num], \
@@ -80,9 +75,10 @@ def step(
                                             ),
                             ch_num,
             )
-            print('Tune request for %i sent by %f' % (tune_time_secs, usrp.get_time_now().get_real_secs()))
 
             usrp.clear_command_time(uhd.ALL_MBOARDS)
+            print('Tune request for %i sent by %f' % (tune_time_secs, usrp.get_time_now().get_real_secs()))
+
             gpstime_secs = usrp.get_time_now().get_real_secs()
             gpstime = drf.util.epoch + timedelta(seconds=gpstime_secs)
             if op.verbose:

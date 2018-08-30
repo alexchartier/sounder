@@ -99,6 +99,7 @@ def analyze_prc(
     cache = Do we cache (\conj(A^T)\*A)^{-1}\conj{A}^T for linear least squares
         solution (significant speedup)
     rfi_rem = Remove RFI (whiten noise).
+    Nranges = number of range gates
 
     """
     if type(dirn) is str:
@@ -107,14 +108,14 @@ def analyze_prc(
         g = dirn
 
     code = create_pseudo_random_code(clen=clen, seed=station)
-    N = an_len / clen
+    N = an_len / clen  # What is N? Number of waveform repetitions in the signal
     res = np.zeros([N, Nranges], dtype=np.complex64)
     r = create_estimation_matrix(code=code, cache=cache, rmax=Nranges)
-    B = r['B']
+    B = r['B']  # B is the estimation matrix
     spec = np.zeros([N, Nranges], dtype=np.complex64)
 
     for i in np.arange(N):
-        z = g.read_vector_c81d(idx0 + i * clen, clen, channel)
+        z = g.read_vector_c81d(idx0 + i * clen, clen, channel)  # z is the signal
         z = z - np.median(z)  # remove dc
         res[i, :] = np.dot(B, z)
     for i in np.arange(Nranges):
@@ -135,6 +136,7 @@ def analyze_prc(
 
 
 def read_log(logfile):
+    print('Loading log file')
     with open(logfile, 'r') as f:
         times = []
         freqs = []
@@ -194,7 +196,7 @@ if __name__ == '__main__':
         help='''Delete existing processed files.''',
     )
     parser.add_argument(
-        '-n', '--logfile', dest='logfile', type=str, default='freq.log',
+        '-n', '--logfile', dest='logfile', type=str, default='freqstep.log',
         help='''Frequency sample log file produced by tx_chirp.py (default: %(default)s)''',
     )
     parser.add_argument(
@@ -233,7 +235,7 @@ if __name__ == '__main__':
     # Define indexing according to the frequency stepping log file
     op.logfile = time.strftime(os.path.join(os.path.join(op.datadir, op.ch), op.logfile))
     idx_data = read_log(op.logfile)
-    
+   
     for time, row in idx_data.iterrows():
         try:
             idx = np.array(int(row['idx']))
