@@ -13,6 +13,13 @@
      Plug in the USRP and run uhd_find_devices to make sure it's visible
      When running the code, don't worry about the occasional "failed to lock" from the GPS if the antenna is poorly located
 
+     HDF5-specific:
+        Install HDF5 from source with prefix /usr
+            cd hdf5-1.10.1/; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
+            make; sudo make install
+
+        pip install --no-binary h5py -I h5py
+
 # create a waveform
 python create_waveform.py -l 10000 -b 10 -s 0
 
