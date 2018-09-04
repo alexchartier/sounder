@@ -19,7 +19,7 @@ import digital_rf as drf
 
 def step(
          usrp, op, ch_num=0, 
-                   sleeptime=0.5, 
+                   sleeptime=0.1, 
                    out_fname=None
     ):
     """ Step the USRP's oscillator through a list of frequencies """
@@ -42,6 +42,8 @@ def step(
 
             # Specify tune time on the first exact sample after listed time
             tune_time_secs = np.ceil(gpstime_secs)
+
+            # Calculate the samplerate
             try:  
                 ch_samplerate_frac = op.ch_samplerates_frac[ch_num]
                 ch_samplerate_ld = (
@@ -75,6 +77,8 @@ def step(
             )
 
             usrp.clear_command_time(uhd.ALL_MBOARDS)
+            print('Tune request for %i sent by %f' % (tune_time_secs, usrp.get_time_now().get_real_secs()))
+
             gpstime_secs = usrp.get_time_now().get_real_secs()
             gpstime = drf.util.epoch + timedelta(seconds=gpstime_secs)
             if op.verbose:
@@ -121,6 +125,7 @@ def set_freq_list():
             58: 5.4,
            }
     """
+
     return {
              0: 2,
              1: 2.5,
@@ -146,5 +151,4 @@ def set_freq_list():
             21: 5,
            }
     """
-
 

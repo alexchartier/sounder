@@ -99,6 +99,7 @@ def analyze_prc(
     cache = Do we cache (\conj(A^T)\*A)^{-1}\conj{A}^T for linear least squares
         solution (significant speedup)
     rfi_rem = Remove RFI (whiten noise).
+    Nranges = number of range gates
 
     """
     if type(dirn) is str:
@@ -107,19 +108,19 @@ def analyze_prc(
         g = dirn
 
     code = create_pseudo_random_code(clen=clen, seed=station)
-    N = an_len / clen
+    N = an_len / clen  # What is N? Number of waveform repetitions in the signal
     res = np.zeros([N, Nranges], dtype=np.complex64)
     r = create_estimation_matrix(code=code, cache=cache, rmax=Nranges)
-    B = r['B']
+    B = r['B']  # B is the estimation matrix?
     spec = np.zeros([N, Nranges], dtype=np.complex64)
 
     for i in np.arange(N):
-        z = g.read_vector_c81d(idx0 + i * clen, clen, channel)
+        z = g.read_vector_c81d(idx0 + i * clen, clen, channel)  # z is the signal
         z = z - np.median(z)  # remove dc
         res[i, :] = np.dot(B, z)
     for i in np.arange(Nranges):
         spec[:, i] = np.fft.fftshift(np.fft.fft(
-            scipy.signal.blackmanharris(N) * res[:, i]
+            scipy.signal.blackmanharris(N) * res[:, i]  # Gaussian pulse shaping reduces out-of-band emissions
         ))
 
     if rfi_rem:
@@ -131,10 +132,12 @@ def analyze_prc(
     ret = {}
     ret['res'] = res
     ret['spec'] = spec
+
     return(ret)
 
 
 def read_log(logfile):
+    print('Loading log file')
     with open(logfile, 'r') as f:
         times = []
         freqs = []
@@ -194,7 +197,7 @@ if __name__ == '__main__':
         help='''Delete existing processed files.''',
     )
     parser.add_argument(
-        '-n', '--logfile', dest='logfile', type=str, default='freq.log',
+        '-n', '--logfile', dest='logfile', type=str, default='freqstep.log',
         help='''Frequency sample log file produced by tx_chirp.py (default: %(default)s)''',
     )
     parser.add_argument(
@@ -230,9 +233,10 @@ if __name__ == '__main__':
     sr = data.get_properties(op.ch)['samples_per_second']
     b = data.get_bounds(op.ch)
 
-    # Define indexing according to the chirp log file
+    # Define indexing according to the frequency stepping log file
+    op.logfile = time.strftime(os.path.join(os.path.join(op.datadir, op.ch), op.logfile))
     idx_data = read_log(op.logfile)
-    
+   
     for time, row in idx_data.iterrows():
         try:
             idx = np.array(int(row['idx']))
@@ -241,17 +245,29 @@ if __name__ == '__main__':
                 station=op.station, Nranges=op.nranges,
                 cache=True, rfi_rem=False,
                 )
+
             plt.clf()
 
             M = 10.0 * np.log10((np.abs(res['spec'])))
-            plt.pcolormesh(np.transpose(M), vmin=(np.median(M) - 1.0))
 
-            plt.colorbar()
+            ######### experimental axis-labelling code
+            baud_len_secs = 1 / (sr) * 10  # assuming 10x oversampling
+            rangegate_len_km = baud_len_secs * 3E5
+            range_km = np.arange(M.shape[1]) * rangegate_len_km
+            doppler_freq_hz = np.fft.fftshift(np.fft.fftfreq(M.shape[0], d=op.codelen/sr))  
+            carrier_wlen = 3E8 / (row['freq'] * 1E6)
+            doppler_vel_ms = doppler_freq_hz * carrier_wlen
+            
+            plt.pcolormesh(doppler_vel_ms, range_km, np.transpose(M), vmin=(np.median(M) - 1.0))
+            plt.ylabel('range (km)')
+            plt.xlabel('Doppler velocity (m/s)')
+            clb = plt.colorbar()
+            clb.set_label('Intensity / dB')
+
+            ######### 
             
             timestr = time.strftime('%Y-%m-%d %H:%M:%S')
             plt.title('%s %f MHz' % (timestr, row['freq']))
-            plt.ylabel('Range?')
-            plt.xlabel('Doppler?')
             plt.savefig(os.path.join(
                 op.outdir, 'spec-{0:06d}.png'.format(int(np.uint64(idx / sr))),
             ))
