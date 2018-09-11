@@ -5,6 +5,7 @@
 # Coded continuous wave meteor radar, Atmos. Meas. Tech., 9, 829-839,
 # doi:10.5194/amt-9-829-2016, 2016.
 
+
 # In standard mode, 
     tx.py transmits a coded continuous wave made up of "l" bauds (usually 10x oversampled) at a specified sample rate. 
     thor.py records on a specified frequency at a specified sample rate. 
@@ -21,6 +22,9 @@
 
 # Questions for Juha:
     1. Can the transmitter lose lock and keep on transmitting?
+    2. Doppler frequency resolution?
+    3. Can we do different baud oversampling on Tx and Rx side?
+
 
 # Before running the following code:
      install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
@@ -35,7 +39,8 @@
             cd hdf5-1.10.1/; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
             make; sudo make install
 
-        pip install --no-binary h5py -I h5py
+            pip install --no-binary h5py -I h5py
+
 
 # create a waveform
 python create_waveform.py -l 10000 -b 10 -s 0
@@ -66,3 +71,8 @@ python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
     Also available in the repository - plugable_drivers.tar.gz
     Follow README instructions in there - note I did not need the modprobe usbnet command
 
+
+# Attaching an external hard drive automatically:
+    Add the following to /etc/fstab (with correct UUID from blkid /dev/sdb)
+    # dev/sdb
+    UUID=62dd164d-0150-4d07-a0c4-31417a1ab6d9 /data           ext4 nofail,auto,noatime,rw,user 0 0
