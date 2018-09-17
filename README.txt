@@ -74,5 +74,5 @@ python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
 
 # Attaching an external hard drive automatically:
     Add the following to /etc/fstab (with correct UUID from blkid /dev/sdb)
-    # dev/sdb
+    # dev/sdb1
     UUID=62dd164d-0150-4d07-a0c4-31417a1ab6d9 /data           ext4 nofail,auto,noatime,rw,user 0 0
