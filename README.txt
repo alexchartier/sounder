@@ -21,10 +21,16 @@
     
 
 # Questions for Juha:
-    1. Can the transmitter lose lock and keep on transmitting?
+    1. Can the transmitter lose lock and keep on transmitting?  - yes, need to query it every 10s or so - usrp.get_sensor("gps_locked") or get_mboard_sensor
     2. Doppler frequency resolution?
-    3. Can we do different baud oversampling on Tx and Rx side?
+    3. Can we do different baud oversampling on Tx and Rx side? NO
 
+	Can we get GPS time from the Octoclock!!!!! We need a way of getting the time from that. 
+	Disconnect all GPSdos if using octoclock - check jumper settings too
+	Get a better GPS antenna for the Tx side
+	Get tx_chirp.py to initially set the time (time.time()....) from the GPSDO and odin.py to set it from the Octoclock
+	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
+	
 
 # Before running the following code:
      install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
@@ -40,6 +46,11 @@
             make; sudo make install
 
             pip install --no-binary h5py -I h5py
+
+# Hardware info
+	1. Locate the receive antenna at least 100 metres from any other electronics (esp. air conditioning, transformers etc.)
+	2. Test all cables for continuity with one end bridged, or with a cable tester
+	3. Locate the GPS receiver somewhere that it can see satellites
 
 
 # create a waveform

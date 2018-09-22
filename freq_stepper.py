@@ -32,7 +32,7 @@ def step(
     # Begin infinite transmission loop
     freq = 0
     while 1:
-        gpstime_secs = usrp.get_time_now().get_real_secs()
+        gpstime_secs = usrp.get_time_now().get_real_secs()  # This gets it from the USRP - the USRP time first needs to be set to GPS time
         gpstime = drf.util.epoch + timedelta(seconds=gpstime_secs)
         gpstime_next = drf.util.epoch + timedelta(seconds=gpstime_secs + 1)
 
