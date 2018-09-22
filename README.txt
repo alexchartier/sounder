@@ -30,6 +30,7 @@
 	Get a better GPS antenna for the Tx side
 	Get tx_chirp.py to initially set the time (time.time()....) from the GPSDO and odin.py to set it from the Octoclock
 	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
+	Go to  10000 baud, 100 kHz code to remove range ambiguity. 
 	
 
 # Before running the following code:
