@@ -14,9 +14,9 @@ tx_freq = 33E6
 # inputs
 sample_rate = 2E5
 baud_oversampling = 10
-code_len_bauds = 10000  # (-l)
+code_len_bauds = 1000  # (-l)
 nranges = 1000  # (-r)
-chirp_len_secs = 2   # for chirpsounder the chirp is a defined length, resulting in a fixed analysis length
+chirp_len_secs = 4   # for chirpsounder the chirp is a defined length, resulting in a fixed analysis length
 tx_freq = 3E6
 
 

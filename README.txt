@@ -27,7 +27,12 @@
      sudo ldconfig
      Using network manager, set the relevant ethernet port's IP to 192.168.10.X where X is NOT 2 (or the USRP's number)
         (note ifconfig provides only a temporary fix, but does let you check the IP has been set correctly)
-     Plug in the USRP and run uhd_find_devices to make sure it's visible
+     Plug in the USRP and run uhd_find_devices to make sure it's visible. 
+     In case of firmware upgrade, you have to power-cycle the USRP after upgrading the firmware. May also have to downgrade UHD to get it to upgrade
+     To change USRP IP address:
+            cd /usr/local/lib/uhd/utils
+            ./usrp_burn_mb_eeprom --args="ip-addr=192.168.10.2" --values="ip-addr=192.168.10.11"
+
      When running the code, don't worry about the occasional "failed to lock" from the GPS if the antenna is poorly located
 
 # create a waveform
