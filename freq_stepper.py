@@ -21,7 +21,7 @@ def step(
          usrp, op, ch_num=0, 
                    sleeptime=0.1, 
                    out_fname=None
-        ):
+    ):
     """ Step the USRP's oscillator through a list of frequencies """
 
     freq_list = set_freq_list()
@@ -32,7 +32,7 @@ def step(
     # Begin infinite transmission loop
     freq = 0
     while 1:
-        gpstime_secs = usrp.get_time_now().get_real_secs()
+        gpstime_secs = usrp.get_time_now().get_real_secs()  # This gets it from the USRP - the USRP time first needs to be set to GPS time
         gpstime = drf.util.epoch + timedelta(seconds=gpstime_secs)
         gpstime_next = drf.util.epoch + timedelta(seconds=gpstime_secs + 1)
 
@@ -62,7 +62,7 @@ def step(
                 tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
                 with open(tune_time.strftime(out_fname), 'a') as f:
                     f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
-           
+          
             usrp.set_command_time(
                                   uhd.time_spec(float(tune_time_secs)),
                                   uhd.ALL_MBOARDS,

@@ -5,6 +5,7 @@
 # Coded continuous wave meteor radar, Atmos. Meas. Tech., 9, 829-839,
 # doi:10.5194/amt-9-829-2016, 2016.
 
+
 # In standard mode, 
     tx.py transmits a coded continuous wave made up of "l" bauds (usually 10x oversampled) at a specified sample rate. 
     thor.py records on a specified frequency at a specified sample rate. 
@@ -20,7 +21,17 @@
     
 
 # Questions for Juha:
-    1. Can the transmitter lose lock and keep on transmitting?
+    1. Can the transmitter lose lock and keep on transmitting?  - yes, need to query it every 10s or so - usrp.get_sensor("gps_locked") or get_mboard_sensor
+    2. Doppler frequency resolution?
+    3. Can we do different baud oversampling on Tx and Rx side? NO
+
+	Can we get GPS time from the Octoclock!!!!! We need a way of getting the time from that. 
+	Disconnect all GPSdos if using octoclock - check jumper settings too
+	Get a better GPS antenna for the Tx side
+	Get tx_chirp.py to initially set the time (time.time()....) from the GPSDO and odin.py to set it from the Octoclock
+	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
+	Go to  10000 baud, 100 kHz code to remove range ambiguity. 
+	
 
 # Before running the following code:
      install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
@@ -35,6 +46,19 @@
 
      When running the code, don't worry about the occasional "failed to lock" from the GPS if the antenna is poorly located
 
+     HDF5-specific:
+        Install HDF5 from source with prefix /usr
+            cd hdf5-1.10.1/; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
+            make; sudo make install
+
+            pip install --no-binary h5py -I h5py
+
+# Hardware info
+	1. Locate the receive antenna at least 100 metres from any other electronics (esp. air conditioning, transformers etc.)
+	2. Test all cables for continuity with one end bridged, or with a cable tester
+	3. Locate the GPS receiver somewhere that it can see satellites
+
+
 # create a waveform
 python create_waveform.py -l 10000 -b 10 -s 0
 
@@ -42,7 +66,8 @@ python create_waveform.py -l 10000 -b 10 -s 0
 python tx_chirp.py -m 192.168.10.2 -d "A:A" -f 3.6e6 -G 0.25 -g 0 -r 1e6 code-l10000-b10-000000.bin
 
 # rx
-odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 ~/data/prc
+odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 -i 10 ~/data/prc
+    # NOTE: receiver sometimes drops a sample on retuning
 
 # analysis
 python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
@@ -63,3 +88,8 @@ python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
     Also available in the repository - plugable_drivers.tar.gz
     Follow README instructions in there - note I did not need the modprobe usbnet command
 
+
+# Attaching an external hard drive automatically:
+    Add the following to /etc/fstab (with correct UUID from blkid /dev/sdb)
+    # dev/sdb1
+    UUID=62dd164d-0150-4d07-a0c4-31417a1ab6d9 /data           ext4 nofail,auto,noatime,rw,user 0 0
