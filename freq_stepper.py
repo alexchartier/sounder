@@ -14,7 +14,9 @@ from datetime import datetime, timedelta
 import numpy as np 
 import time 
 from gnuradio import uhd
+import pytz
 import digital_rf as drf
+
 
 
 def step(
@@ -29,12 +31,16 @@ def step(
         with open(out_fname, 'a') as f:
             f.write('Tune time (UT)   Freq (MHz)   Tune sample\n')
 
+    # Check for GPS lock
+    while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
+        print("waiting for gps lock...")
+        time.sleep(5)
+
     # Begin infinite transmission loop
     freq = 0
     while 1:
-        gpstime_secs = usrp.get_time_now().get_real_secs()  # This gets it from the USRP - the USRP time first needs to be set to GPS time
-        gpstime = drf.util.epoch + timedelta(seconds=gpstime_secs)
-        gpstime_next = drf.util.epoch + timedelta(seconds=gpstime_secs + 1)
+        gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+        gpstime_next = gpstime + dt.timedelta(seconds=1)
 
         # Change frequency each time we hit a new time in the list, otherwise hold the existing note
         if ((gpstime_next.second) in freq_list.keys()) and (freq != freq_list[gpstime_next.second]):
@@ -60,7 +66,9 @@ def step(
             if out_fname:
                 tune_time = drf.util.sample_to_datetime(tune_time_rsamples, op.samplerate)
                 tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
+                gps_lock = usrp.get_mboard_sensor("gps_locked").to_bool()
                 with open(tune_time.strftime(out_fname), 'a') as f:
+                    f.write('GPS lock status: %s' % str(gps_lock))
                     f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
           
             usrp.set_command_time(
@@ -77,14 +85,11 @@ def step(
             )
 
             usrp.clear_command_time(uhd.ALL_MBOARDS)
-            print('Tune request for %i sent by %f' % (tune_time_secs, usrp.get_time_now().get_real_secs()))
-
-            gpstime_secs = usrp.get_time_now().get_real_secs()
-            gpstime = drf.util.epoch + timedelta(seconds=gpstime_secs)
+            gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
             if op.verbose:
                 if freq == np.min(freq_list.values()):
                     print('\n')
-                print('Tuned to %s MHz by GPS time %s' % (str(freq).rjust(4), gpstime.strftime('%H:%M:%S.%f')))
+                print('Tuned to %s MHz by GPS time %s' % (str(freq).rjust(4), gpstime.strftime('%Y%b%d %H:%M:%S.%f')))
 
         time.sleep(sleeptime)
 

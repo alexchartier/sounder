@@ -32,6 +32,7 @@ from gnuradio import blocks, filter as grfilter, gr, uhd
 import digital_rf as drf
 import gr_digital_rf as gr_drf
 
+#import freq_stepper_simple as freq_stepper
 import freq_stepper
 import pdb
 
@@ -620,14 +621,15 @@ class Thor(object):
                 op.resampling_filter_taps.append(np.zeros(0))
                 op.resampling_filter_delays.append(0)
             else:
-                taps = equiripple_lpf(
-                    cutoff=float(op.ch_lpf_cutoffs[ko] * ratio),
-                    transition_width=float(
-                        op.ch_lpf_transition_widths[ko] * ratio
-                    ),
-                    attenuation=op.ch_lpf_attenuations[ko],
-                    pass_ripple=op.ch_lpf_pass_ripples[ko],
-                )
+                taps=np.repeat(1.0,100.0)
+       #         taps = equiripple_lpf(
+      #              cutoff=float(op.ch_lpf_cutoffs[ko] * ratio),
+     #               transition_width=float(
+    #                    op.ch_lpf_transition_widths[ko] * ratio
+   #                 ),
+  #                  attenuation=op.ch_lpf_attenuations[ko],
+ #                   pass_ripple=op.ch_lpf_pass_ripples[ko],
+#                )
                 op.resampling_filter_taps.append(taps)
                 op.resampling_filter_delays.append((len(taps) - 1) // 2)
 
@@ -733,22 +735,16 @@ class Thor(object):
         time.sleep(0.2)
 
         # set device time
-        tt = time.time()
-        if op.sync:
-            # wait until time 0.2 to 0.5 past full second, then latch
-            # we have to trust NTP to be 0.2 s accurate
-            while tt - math.floor(tt) < 0.2 or tt - math.floor(tt) > 0.3:
-                time.sleep(0.01)
-                tt = time.time()
-            if op.verbose:
-                print('Latching at ' + str(tt))
-            # waits for the next pps to happen
-            # (at time math.ceil(tt))
-            # then sets the time for the subsequent pps
-            # (at time math.ceil(tt) + 1.0)
-            usrp.set_time_unknown_pps(uhd.time_spec(math.ceil(tt) + 1.0))
-        else:
+        if op.sync:  # using GPSDO 
+            while int(usrp.get_time_last_pps().get_real_secs()) != usrp.get_mboard_sensor("gps_time").to_int():
+                print('USRP time %i, GPS time %i' %(int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
+                usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2)) 
+                time.sleep(1)
+
+        else:  # Using NTP
+            tt = time.time()
             usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
+            time.sleep(1)
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
@@ -955,7 +951,8 @@ class Thor(object):
             connections = [(usrp, kr)]
             if resampler is not None:
                 connections.append((resampler, 0))
-                connections.append((resampler_skiphead, 0))
+                # juha: remove delay
+#                connections.append((resampler_skiphead, 0))
             if rotator is not None:
                 connections.append((rotator, 0))
             if channelizer is not None:
