@@ -28,7 +28,7 @@ Then: Build gnuradio with the new UHD
         sudo apt-get install python-wxgtk2.8
 
     tar -xvzf gnuradio-3.7.11.tar.gz 
-    cd gnuradio-3.7.11; mkdir build; cd build; cmake ..; make; sudo make install
+    cd gnuradio-3.7.11; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..; make; sudo make install
     
 
 Then: If USRP is not on original IP, or if IP needs changing
