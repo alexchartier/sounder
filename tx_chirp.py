@@ -581,6 +581,15 @@ class Tx(object):
         usrp = self._usrp_setup()
 
         # set device time
+        tt_gps = usrp.get_mboard_sensor('gps_time')
+        last_pps_time = usrp.get_time_last_pps()
+        if op.sync:
+            # Wait until time 0.2 to 0.5 past full second, then latch
+            td = tt_gps - last_pps_time
+            while  td < 0.2 or td > 0.5:
+                time.sleep(0.01)
+                tt_gps = usrp.get_mboard_sensor('gps_time') 
+        pdb.set_trace()
         tt = time.time()
         if op.sync:
             # wait until time 0.2 to 0.5 past full second, then latch
