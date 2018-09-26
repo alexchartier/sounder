@@ -580,33 +580,15 @@ class Tx(object):
         # get UHD USRP source
         usrp = self._usrp_setup()
 
-        # set device time
-        tt_gps = usrp.get_mboard_sensor('gps_time')
-        last_pps_time = usrp.get_time_last_pps()
-        if op.sync:
-            # Wait until time 0.2 to 0.5 past full second, then latch
-            td = tt_gps - last_pps_time
-            while  td < 0.2 or td > 0.5:
-                time.sleep(0.01)
-                tt_gps = usrp.get_mboard_sensor('gps_time') 
-        pdb.set_trace()
-        tt = time.time()
-        if op.sync:
-            # wait until time 0.2 to 0.5 past full second, then latch
-            # we have to trust NTP to be 0.2 s accurate
-            while tt - math.floor(tt) < 0.2 or tt - math.floor(tt) > 0.3:
-                time.sleep(0.01)
-                tt = time.time()
-            if op.verbose:
-                print('Latching at ' + str(tt))
-            # waits for the next pps to happen
-            # (at time math.ceil(tt))
-            # then sets the time for the subsequent pps
-            # (at time math.ceil(tt) + 1.0)
-            usrp.set_time_unknown_pps(uhd.time_spec(math.ceil(tt) + 1.0))
-            # wait for time registers to be in known state
-            time.sleep(math.ceil(tt) - tt + 1.0)
-        else:
+
+        # Set device time
+        if op.sync:  # using the onboard GPS
+            while int(usrp.get_time_last_pps().get_real_secs()) != usrp.get_mboard_sensor("gps_time").to_int():
+                print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
+                usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2))
+                time.sleep(1)
+        else:  # using NTP
+            tt = time.time()
             usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
             # wait for time registers to be in known state
             time.sleep(1)
