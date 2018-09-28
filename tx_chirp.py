@@ -34,6 +34,23 @@ import digital_rf as drf
 import freq_stepper
 
 
+def set_dev_time(usrp, timetype):
+    """ Set the USRP's time based on GPS or NTP"""
+    if timetype == 'GPS':
+        while int(usrp.get_time_last_pps().get_real_secs()) != usrp.get_mboard_sensor("gps_time").to_int():
+            print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
+            usrp.set_time_now(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2), uhd.ALL_MBOARDS)
+            time.sleep(1)
+        print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
+    elif timetype == 'NTP':
+        tt = time.time()
+        usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
+        # wait for time registers to be in known state
+        time.sleep(1)
+
+    print('Time set using %s' % timetype)
+
+
 def evalint(s):
     """Evaluate string to an integer."""
     return int(eval(s, {}, {}))
@@ -583,15 +600,9 @@ class Tx(object):
 
         # Set device time
         if op.sync:  # using the onboard GPS
-            while int(usrp.get_time_last_pps().get_real_secs()) != usrp.get_mboard_sensor("gps_time").to_int():
-                print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
-                usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2))
-                time.sleep(1)
+            set_dev_time(usrp, 'GPS')
         else:  # using NTP
-            tt = time.time()
-            usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
-            # wait for time registers to be in known state
-            time.sleep(1)
+            set_dev_time(usrp, 'NTP')
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and

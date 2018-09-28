@@ -26,29 +26,39 @@ def step(
     ):
     """ Step the USRP's oscillator through a list of frequencies """
 
+    print('Starting freq_stepper')
     freq_list = set_freq_list()
     if out_fname:
         with open(out_fname, 'a') as f:
             f.write('Tune time (UT)   Freq (MHz)   Tune sample\n')
 
     # Check for GPS lock
-    print('Checking for GPS lock')
+    print('Checking for GPS lock...')
     while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
         print("waiting for gps lock...")
         time.sleep(5)
+    print('.....locked')
 
     # Begin infinite transmission loop
     freq = 0
     while 1:
+
+        # GPS time is necessary to sync operations between the transmitter and receiver
         gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
         gpstime_next = gpstime + timedelta(seconds=1)
+        gpstime_secs = gpstime.replace(tzinfo=pytz.utc) - drf.util.epoch
+
+        # USRP time is necessary to know what sample number we shift frequencies at
+        usrptime_secs = usrp.get_time_now().get_real_secs()  # This gets it from the USRP - the USRP time first needs to be set to GPS time
+        usrptime_next = drf.util.epoch + timedelta(seconds=usrptime_secs + 1)
 
         # Change frequency each time we hit a new time in the list, otherwise hold the existing note
         if ((gpstime_next.second) in freq_list.keys()) and (freq != freq_list[gpstime_next.second]):
             freq = freq_list[gpstime_next.second]
 
-            # Specify tune time on the first exact sample after listed time
-            tune_time_secs = gpstime_next.second
+            # Specify USRP tune time on the first exact sample after listed time
+            print(usrptime_next.strftime('USRP tune time: %Y%b%d %H:%M:%s'))
+            tune_time_secs = (usrptime_next - drf.util.epoch).total_seconds()
 
             # Calculate the samplerate
             try:  
@@ -63,14 +73,14 @@ def step(
             tune_time_rsamples = np.ceil(tune_time_secs * op.samplerate)
             tune_time_secs = tune_time_rsamples / op.samplerate
 
+            gps_lock = usrp.get_mboard_sensor("gps_locked").to_bool()
+            print('GPS lock status: %s' % gps_lock)
             # Optionally write out the shift samples of each frequency
+            tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
             if out_fname:
-                tune_time = drf.util.sample_to_datetime(tune_time_rsamples, op.samplerate)
-                tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
-                gps_lock = usrp.get_mboard_sensor("gps_locked").to_bool()
-                with open(tune_time.strftime(out_fname), 'a') as f:
-                    f.write('GPS lock status: %s' % str(gps_lock))
-                    f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
+                with open(gpstime_next.strftime(out_fname), 'a') as f:
+                    # f.write('GPS lock status: %s' % str(gps_lock))
+                    f.write('%s %s %i\n' % (gpstime_next.strftime('%Y/%m/%d-%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
           
             usrp.set_command_time(
                                   uhd.time_spec(float(tune_time_secs)),
@@ -90,7 +100,7 @@ def step(
             if op.verbose:
                 if freq == np.min(freq_list.values()):
                     print('\n')
-                print('Tuned to %s MHz by GPS time %s' % (str(freq).rjust(4), gpstime.strftime('%Y%b%d %H:%M:%S.%f')))
+                print('Tuned to %s MHz at GPS time %s (sample %i)' % (str(freq).rjust(4), gpstime.strftime('%Y%b%d %H:%M:%S'), tune_sample))
 
         time.sleep(sleeptime)
 

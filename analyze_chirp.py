@@ -166,7 +166,7 @@ def read_log(logfile):
 
 if __name__ == '__main__':
     import matplotlib
-    # matplotlib.use('Agg')
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
     desc = """Script for analyzing pseudorandom-coded waveforms.
@@ -236,20 +236,21 @@ if __name__ == '__main__':
     # Define indexing according to the frequency stepping log file
     op.logfile = time.strftime(os.path.join(os.path.join(op.datadir, op.ch), op.logfile))
     idx_data = read_log(op.logfile)
-   
+  
     for time, row in idx_data.iterrows():
-        try:
+        #try:
             idx = np.array(int(row['idx']))
             res = analyze_prc(
                 data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,
                 station=op.station, Nranges=op.nranges,
-                cache=True, rfi_rem=False,
+                cache=True, rfi_rem=True,
                 )
 
             plt.clf()
 
             M = 10.0 * np.log10((np.abs(res['spec'])))
 
+            """
             ######### experimental axis-labelling code
             baud_len_secs = 1 / (sr) * 10  # assuming 10x oversampling
             rangegate_len_km = baud_len_secs * 3E5
@@ -265,14 +266,17 @@ if __name__ == '__main__':
             clb.set_label('Intensity / dB')
 
             ######### 
+            """
             
+            plt.pcolormesh(np.transpose(M), vmin=(np.median(M) - 1.0))
             timestr = time.strftime('%Y-%m-%d %H:%M:%S')
             plt.title('%s %f MHz' % (timestr, row['freq']))
             plt.savefig(os.path.join(
                 op.outdir, 'spec-{0:06d}.png'.format(int(np.uint64(idx / sr))),
             ))
             print('%s' % timestr)
-        except IOError:
-            print('IOError, skipping.')
+
+        #except IOError:
+        #    print('IOError, skipping.')
     
     # <<<<<<<<<<<<<<

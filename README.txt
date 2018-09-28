@@ -21,16 +21,25 @@
     
 
 # Questions for Juha:
-    1. Can the transmitter lose lock and keep on transmitting?  - yes, need to query it every 10s or so - usrp.get_sensor("gps_locked") or get_mboard_sensor
+    1. Can the transmitter lose lock and keep on transmitting?  
+        - yes, need to query it every 10s or so - usrp.get_sensor("gps_locked") or get_mboard_sensor
     2. Doppler frequency resolution?
-    3. Can we do different baud oversampling on Tx and Rx side? NO
+        - nsamples (number of whole code-blocks) in a transmission
+    3. Can we do different baud oversampling on Tx and Rx side? 
+        - NO
 
+TODO:
+    (software)
+	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
+	Get tx_chirp.py to initially set the time (time.time()....) from the GPSDO and odin.py to set it from the Octoclock
 	Can we get GPS time from the Octoclock!!!!! We need a way of getting the time from that. 
+    Query GPS lock every 10s or so - usrp.get_sensor("gps_locked") or get_mboard_sensor
+	Go to 10000 baud, 100 kHz code to remove range ambiguity. 
+    implement Juha's power domain analysis to improve Doppler resolution
+
+    (hardware)
 	Disconnect all GPSdos if using octoclock - check jumper settings too
 	Get a better GPS antenna for the Tx side
-	Get tx_chirp.py to initially set the time (time.time()....) from the GPSDO and odin.py to set it from the Octoclock
-	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
-	Go to  10000 baud, 100 kHz code to remove range ambiguity. 
 	
 
 # Before running the following code:
@@ -39,7 +48,8 @@
      Using network manager, set the relevant ethernet port's IP to 192.168.10.X where X is NOT 2 (or the USRP's number)
         (note ifconfig provides only a temporary fix, but does let you check the IP has been set correctly)
      Plug in the USRP and run uhd_find_devices to make sure it's visible. 
-     In case of firmware upgrade, you have to power-cycle the USRP after upgrading the firmware. May also have to downgrade UHD to get it to upgrade
+     In case of firmware upgrade, you have to power-cycle the USRP after upgrading the firmware.
+         May also have to downgrade UHD to get it to upgrade
      To change USRP IP address:
             cd /usr/local/lib/uhd/utils
             ./usrp_burn_mb_eeprom --args="ip-addr=192.168.10.2" --values="ip-addr=192.168.10.11"
@@ -67,7 +77,6 @@ python tx_chirp.py -m 192.168.10.2 -d "A:A" -f 3.6e6 -G 0.25 -g 0 -r 1e6 code-l1
 
 # rx
 odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 -i 10 ~/data/prc
-    # NOTE: receiver sometimes drops a sample on retuning
 
 # analysis
 python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
@@ -87,7 +96,6 @@ python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
     Drivers available from http://www.asix.com.tw/products.php?op=pItemdetail&PItemID=131;71;112
     Also available in the repository - plugable_drivers.tar.gz
     Follow README instructions in there - note I did not need the modprobe usbnet command
-
 
 # Attaching an external hard drive automatically:
     Add the following to /etc/fstab (with correct UUID from blkid /dev/sdb)
