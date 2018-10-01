@@ -22,8 +22,9 @@ import digital_rf as drf
 def step(
          usrp, op, ch_num=0, 
                    sleeptime=0.1, 
-                   out_fname=None
-    ):
+                   out_fname=None,
+                   time_source='usrp',
+):
     """ Step the USRP's oscillator through a list of frequencies """
 
     freq_list = set_freq_list()
@@ -32,9 +33,48 @@ def step(
             f.write('Tune time (UT)   Freq (MHz)   Tune sample\n')
 
     # Check for GPS lock
-    while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
-        print("waiting for gps lock...")
-        time.sleep(5)
+    if time_source == 'usrp':
+        while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
+            print("waiting for gps lock...")
+            time.sleep(5)
+    elif time_source == 'octoclock':
+        # Instantiate Octoclock object
+        pdb.set_trace()
+        clock = uhd.usrp.multi_usrp_clock.make();
+"""
+        // Instantiate multi_usrp object containing all devices (must supply IP
+        addresses)
+        multi_usrp::sptr usrp =
+        multi_usrp::make("addr0=<IP_addr_0>,addr1=<IP_addr_1>,addr3=<IP_addr_3>,addr4=<IP_addr_4>");
+        for (size_t mboard = 0; mboard < usrp->get_numb_mboards; mboard++)
+        {
+            // Set to external references
+            usrp->set_clock_source("external");
+            usrp->set_time_source("external");
+            // Wait for PLL to lock (there really should be some sort of timeout
+        here)
+            while (not usrp->get_mboard_sensor("ref_locked", mboard).to_bool())
+            {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(1);
+            }
+        }
+
+        // Get time from Octoclock GPSDO
+        clock.get_sensor("gps_time");    // alignment with PPS edge is unknown with
+        first query
+        time_t gps_time = clock.get_sensor("gps_time").to_int();    // second
+        successive query will return the time as soon as possible after PPS edge
+        for (size_t mboard = 0; mboard < usrp->get_numb_mboards; mboard++)
+        {
+            usrp->set_time_next_pps(uhd::time_spec_t(gps_time+1), mboard);
+        }
+
+"""
+
+
+
+       multi_usrp_clock.make() 
+        
 
     # Begin infinite transmission loop
     freq = 0
@@ -68,7 +108,7 @@ def step(
                 tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
                 gps_lock = usrp.get_mboard_sensor("gps_locked").to_bool()
                 with open(tune_time.strftime(out_fname), 'a') as f:
-                    f.write('GPS lock status: %s' % str(gps_lock))
+                    f.write('GPS lock status: %s' % gps_lock)
                     f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), str(freq).rjust(4), tune_sample))
           
             usrp.set_command_time(

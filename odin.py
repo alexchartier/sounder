@@ -32,7 +32,6 @@ from gnuradio import blocks, filter as grfilter, gr, uhd
 import digital_rf as drf
 import gr_digital_rf as gr_drf
 
-#import freq_stepper_simple as freq_stepper
 import freq_stepper
 import pdb
 
@@ -976,7 +975,7 @@ class Thor(object):
 
         # Step through freqs
         freqstep_log_fname = time.strftime(os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log')
-        freq_stepper.step(usrp, op, out_fname=freqstep_log_fname)
+        freq_stepper.step(usrp, op, out_fname=freqstep_log_fname, time_source='octoclock')
         
         # wait until end time or until flowgraph stops
         if et is None and duration is not None:

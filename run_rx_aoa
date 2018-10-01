@@ -11,12 +11,9 @@ if ! pgrep -x "python" > /dev/null
 then
     echo "thor.py not running, launching at ${current_time}"
     
-    python $sdir -m 192.168.10.12 -d "A:A" -c hfrx_0 -f $freq -r $rate -i 10 /data  &
-    python $sdir -m 192.168.10.12 -d "A:B" -c hfrx_1 -f $freq -r $rate -i 10 /data  &
-    python $sdir -m 192.168.10.13 -d "A:A" -c hfrx_2 -f $freq -r $rate -i 10 /data  &
-    python $sdir -m 192.168.10.13 -d "A:B" -c hfrx_3 -f $freq -r $rate -i 10 /data  &
-    python $sdir -m 192.168.10.15 -d "A:A" -c hfrx_4 -f $freq -r $rate -i 10 /data  &
-    python $sdir -m 192.168.10.15 -d "A:B" -c hfrx_5 -f $freq -r $rate -i 10 /data  &
+    python $sdir -m 192.168.10.12 -d "A:A A:B" -c hfrx_0,hfrx_1 -f $freq -r $rate -i 10 /data  &
+    python $sdir -m 192.168.10.13 -d "A:A A:B" -c hfrx_2,hfrx_3 -f $freq -r $rate -i 10 /data  &
+    python $sdir -m 192.168.10.15 -d "A:A A:B" -c hfrx_4,hfrx_5 -f $freq -r $rate -i 10 /data  &
 else :
     pid="`pgrep -x python`"
     echo "odin.py running at ${current_time} as pid ${pid}"
