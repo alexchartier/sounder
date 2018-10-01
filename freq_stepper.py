@@ -71,8 +71,6 @@ def step(
 
 """
 
-
-
        multi_usrp_clock.make() 
         
 
@@ -80,14 +78,14 @@ def step(
     freq = 0
     while 1:
         gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
-        gpstime_next = gpstime + dt.timedelta(seconds=1)
+        gpstime_next = gpstime + timedelta(seconds=1)
 
         # Change frequency each time we hit a new time in the list, otherwise hold the existing note
         if ((gpstime_next.second) in freq_list.keys()) and (freq != freq_list[gpstime_next.second]):
             freq = freq_list[gpstime_next.second]
 
             # Specify tune time on the first exact sample after listed time
-            tune_time_secs = np.ceil(gpstime_secs)
+            tune_time_secs = gpstime_next.second
 
             # Calculate the samplerate
             try:  

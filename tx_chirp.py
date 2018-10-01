@@ -580,10 +580,11 @@ class Tx(object):
         # get UHD USRP source
         usrp = self._usrp_setup()
 
+
         # Set device time
         if op.sync:  # using the onboard GPS
             while int(usrp.get_time_last_pps().get_real_secs()) != usrp.get_mboard_sensor("gps_time").to_int():
-                print('USRP time %i, GPS time %i' %(int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
+                print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
                 usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2))
                 time.sleep(1)
         else:  # using NTP
