@@ -18,16 +18,23 @@ import pytz
 import digital_rf as drf
 
 
+def main():
+    # Test out the frequency stepper
+    freq_list_fname = 'freq_list_default.txt'
+    step([], [], freq_list_fname=freq_list_fname)
+
 
 def step(
          usrp, op, ch_num=0, 
                    sleeptime=0.1, 
                    out_fname=None,
                    time_source='usrp',
+                   freq_list_fname=None,
 ):
     """ Step the USRP's oscillator through a list of frequencies """
+    freq_list = get_freq_list(freq_list_fname) if freq_list_fname else set_freq_list()
+    pdb.set_trace()
 
-    freq_list = set_freq_list()
     if out_fname:
         with open(out_fname, 'a') as f:
             f.write('Tune time (UT)   Freq (MHz)   Tune sample\n')
@@ -39,9 +46,8 @@ def step(
             time.sleep(5)
     elif time_source == 'octoclock':
         # Instantiate Octoclock object
-        pdb.set_trace()
-        clock = uhd.usrp.multi_usrp_clock.make();
-"""
+        clock = uhd.usrp.multi_usrp_clock.make()
+        """
         // Instantiate multi_usrp object containing all devices (must supply IP
         addresses)
         multi_usrp::sptr usrp =
@@ -69,10 +75,7 @@ def step(
             usrp->set_time_next_pps(uhd::time_spec_t(gps_time+1), mboard);
         }
 
-"""
-
-       multi_usrp_clock.make() 
-        
+        """
 
     # Begin infinite transmission loop
     freq = 0
@@ -132,66 +135,25 @@ def step(
         time.sleep(sleeptime)
 
 
+def get_freq_list(freq_list_fname):
+    freq_list = {}
+    with open(freq_list_fname, 'r') as f:
+        for line in f:
+            try:
+                k, v = line.split(':')
+                freq_list[int(k)] = float(v) 
+            except:
+                print('Could not load line: %s' % line)
+    return freq_list
+
+
 def set_freq_list():
-    # time, freq (MHz)
-    # This could be set in a text file, but it's important to understand the function above when choosing times
+    # shift time (seconds), freq (MHz)
     return {
-             0: 4.5,
-             2: 4.6,
-             4: 4.7,
-             6: 4.8,
-             8: 4.9,
-            10: 5,
-            12: 5.1,
-            14: 5.2,
-            16: 5.3,
-            18: 5.4,
-            20: 5.5,
-            22: 4.6,
-            24: 4.7,
-            26: 4.8,
-            28: 4.9,
-            30: 5,
-            32: 5.1,
-            34: 5.2,
-            36: 5.3,
-            38: 5.4,
-            40: 5.5,
-            42: 4.6,
-            44: 4.7,
-            46: 4.8,
-            48: 4.9,
-            50: 5,
-            52: 5.1,
-            54: 5.2,
-            56: 5.3,
-            58: 5.4,
+             0: 6,
+            30: 12,
            }
-    """
 
-    return {
-             0: 2,
-             1: 2.5,
-             2: 3,
-             3: 3.5,
-             4: 4,
-             5: 4.5,
-             6: 5,
-             7: 5.5,
-             8: 6,
-             9: 6.5,
-            10: 7,
-            11: 7.5,
-            12: 8,
-            13: 8.5,
-            14: 9,
-            15: 9.5,
-            16: 10,
-            17: 10.5,
-            18: 11,
-            19: 11.5,
-            20: 12,
-            21: 5,
-           }
-    """
 
+if __name__ == '__main__':
+    main()

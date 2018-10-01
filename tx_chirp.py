@@ -644,7 +644,7 @@ class Tx(object):
         # >>>>>>>>>>>>>>>>
         # Step the USRP through a list of frequencies
 
-        freq_stepper.step(usrp, op) 
+        freq_stepper.step(usrp, op, freq_list_fname=op.freq_list_fname) 
         # <<<<<<<<<<<<<<<<
 
         # wait until end time or until flowgraph stops
@@ -701,7 +701,7 @@ if __name__ == '__main__':
     ))
 
     usage = (
-        '%(prog)s [-m MBOARD] [-d SUBDEV] [-c CH] [-y ANT] [-f FREQ]'
+        '%(prog)s [-m MBOARD] [-d SUBDEV] [-c CH] [-y ANT] [-f freq_list]'
         ' [-F OFFSET] \\\n'
         '{0:8}[-g GAIN] [-b BANDWIDTH] [-r RATE] [options]'
         ' FILE\n'.format('')
@@ -735,7 +735,7 @@ if __name__ == '__main__':
     )
     egs = [
         '''\
-        {0} -m 192.168.10.2 -d "A:0" -f 440e6 -F 12.5e6 -G 0.25 -g 0 -r 1e6
+        {0} -m 192.168.10.2 -d "A:0" -f freq_list.txt -F 12.5e6 -G 0.25 -g 0 -r 1e6
         code.bin
         ''',
     ]
@@ -786,10 +786,6 @@ if __name__ == '__main__':
     )
 
     chgroup = parser.add_argument_group(title='channel')
-    chgroup.add_argument(
-        '-f', '--centerfreq', dest='centerfreqs', action=Extend, type=float,
-        help='''Center frequency in Hz. (default: 440e6)''',
-    )
     chgroup.add_argument(
         '-F', '--lo_offset', dest='lo_offsets', action=Extend, type=float,
         help='''Frontend tuner offset from center frequency, in Hz.
@@ -889,6 +885,16 @@ if __name__ == '__main__':
         help='''End time of the experiment as datetime (if in ISO8601 format:
                 2016-01-01T16:24:00Z) or Unix time (if float/int).
                 (default: wait for Ctrl-C)''',
+    )
+    timegroup.add_argument(
+        '-f', '--freq_list', dest='freq_list_fname',
+        help='''Text file with list of tune times in format:
+                time (in seconds of each minute): frequency (in MHz), e.g.:
+                     0:  3
+                    15:  6
+                    30:  9
+                    45:  12
+                (default: None)''',
     )
     timegroup.add_argument(
         '-l', '--duration', dest='duration', type=evalint,
