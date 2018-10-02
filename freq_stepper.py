@@ -57,7 +57,7 @@ def step(
             freq = freq_list[gpstime_next.second]
 
             # Specify USRP tune time on the first exact sample after listed time
-            print(usrptime_next.strftime('USRP tune time: %Y%b%d %H:%M:%s'))
+            print(usrptime_next.strftime('USRP tune time: %Y%b%d %H:%M:%S'))
             tune_time_secs = (usrptime_next - drf.util.epoch).total_seconds()
 
             # Calculate the samplerate
@@ -105,42 +105,51 @@ def step(
         time.sleep(sleeptime)
 
 
+def set_dev_time(usrp, timetype):
+    """ Set the USRP's time based on GPS or NTP"""
+    if timetype == 'GPS':
+        while int(usrp.get_time_last_pps().get_real_secs()) != usrp.get_mboard_sensor("gps_time").to_int():
+            print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
+            usrp.set_time_now(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2), uhd.ALL_MBOARDS)
+            time.sleep(1)
+            print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
+    elif timetype == 'NTP':
+        tt = time.time()
+        usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
+        # wait for time registers to be in known state
+        time.sleep(1)
+
+        print('Time set using %s' % timetype)
+
+
 def set_freq_list():
     # time, freq (MHz)
     # This could be set in a text file, but it's important to understand the function above when choosing times
     return {
-             0: 4.5,
-             2: 4.6,
-             4: 4.7,
-             6: 4.8,
-             8: 4.9,
-            10: 5,
-            12: 5.1,
-            14: 5.2,
-            16: 5.3,
-            18: 5.4,
-            20: 5.5,
-            22: 4.6,
-            24: 4.7,
-            26: 4.8,
-            28: 4.9,
-            30: 5,
-            32: 5.1,
-            34: 5.2,
-            36: 5.3,
-            38: 5.4,
-            40: 5.5,
-            42: 4.6,
-            44: 4.7,
-            46: 4.8,
-            48: 4.9,
-            50: 5,
-            52: 5.1,
-            54: 5.2,
-            56: 5.3,
-            58: 5.4,
+             0: 3.0,
+            10: 4.6,
+            20: 4.7,
+            30: 4.8,
+            40: 4.9,
+            50: 5.1,
            }
+
     """
+    return {
+            0: 2, 
+            5: 3, 
+            10: 4, 
+            15: 5,
+            20: 6,
+            25: 7,
+            30: 8,
+            35: 9,
+            40: 10,
+            45: 11,
+            50: 12,
+            55: 13,
+            }
+
 
     return {
              0: 2,

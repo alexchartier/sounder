@@ -33,7 +33,7 @@ import digital_rf as drf
 import gr_digital_rf as gr_drf
 
 import freq_stepper
-from tx_chirp import set_dev_time
+from freq_stepper import set_dev_time
 import pdb
 
 epoch = datetime(1970, 1, 1, tzinfo=pytz.utc)
