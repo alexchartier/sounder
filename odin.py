@@ -162,6 +162,7 @@ class Thor(object):
         ch_out_types=[None],
         # digital_rf group (apply to all)
         file_cadence_ms=1000, subdir_cadence_s=3600, metadata={}, uuid=None,
+        freq_list_fname=None,
     ):
         options = locals()
         del options['self']
@@ -982,8 +983,8 @@ class Thor(object):
 
         time.sleep(5)
         # Step through freqs
-        freqstep_log_fname = time.strftime(os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log')
-        freq_stepper.step(u, op, out_fname=freqstep_log_fname)
+        freqstep_log_fname = os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log'
+        freq_stepper.step(u, op, freq_list_fname=op.freq_list_fname, out_fname=freqstep_log_fname)
 
         # wait until flowgraph stops
         try:
@@ -1188,11 +1189,6 @@ def _add_receiver_group(parser):
 def _add_rchannel_group(parser):
     chgroup = parser.add_argument_group(title='receiver channel')
     chgroup.add_argument(
-        '-f', '--centerfreq', dest='centerfreqs', action=Extend,
-        type=evalfloat,
-        help='''Center frequency in Hz. (default: 100e6)''',
-    )
-    chgroup.add_argument(
         '-F', '--lo_offset', dest='lo_offsets', action=Extend, type=evalfloat,
         help='''Frontend tuner offset from center frequency, in Hz.
                 (default: 0)''',
@@ -1376,6 +1372,16 @@ def _add_time_group(parser):
                 (default: wait for Ctrl-C)''',
     )
     timegroup.add_argument(
+        '-f', '--freq_list', dest='freq_list_fname',
+        help='''Text file with list of tune times in format:
+        time (in seconds of each minute): frequency (in MHz), e.g.:
+        0:   3
+        15:  6
+        30:  9
+        45:  12
+        (default: None)''',
+    )   
+    timegroup.add_argument(
         '-l', '--duration', dest='duration', type=evalint,
         help='''Duration of experiment in seconds. When endtime is not given,
                 end this long after start time. (default: wait for Ctrl-C)''',
@@ -1407,7 +1413,7 @@ def _build_thor_parser(Parser, *args):
     ))
 
     usage = (
-        '%(prog)s [-m MBOARD] [-d SUBDEV] [-c CH] [-y ANT] [-f FREQ]'
+        '%(prog)s [-m MBOARD] [-d SUBDEV] [-c CH] [-y ANT] [-f freq_list]'
         ' [-F OFFSET] \\\n'
         '{0:8}[-g GAIN] [-b BANDWIDTH] [-r RATE] [options] DIR\n'.format('')
     )
@@ -1441,8 +1447,8 @@ def _build_thor_parser(Parser, *args):
     )
     egs = [
         '''\
-        {0} -m 192.168.20.2 -d "A:A A:B" -c h,v -f 95e6 -r 100e6/24
-        /data/test
+        {0} -m 192.168.10.13 -d "A:A" -c h,v -f freq_list.txt -r 1e6
+        ~/data/test
         ''',
         '''\
         {0} -m 192.168.10.2 -d "A:0" -c ch1 -y "TX/RX" -f 20e6 -F 10e3 -g 20
