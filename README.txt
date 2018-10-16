@@ -73,13 +73,13 @@ TODO:
 python create_waveform.py -l 10000 -b 10 -s 0
 
 # tx
-python tx_chirp.py -m 192.168.10.2 -d "A:A" -f freq_list.txt -G 0.25 -g 0 -r 1e6 code-l10000-b10-000000.bin
+python tx_chirp.py -m 192.168.10.3 -d "A:A" -f freq_list.txt -G 1 -g 0 -r 1e6 waveforms/code-l10000-b10-000000.bin
 
 # rx
-odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f freq_list.txt -r 1e6 -i 10 ~/data/prc
+python odin.py -m 192.168.10.13 -d "A:A" -c hfrx -f freq_list.txt -r 1e6 -i 10 ~/data/chirp_loopback
 
 # analysis
-python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
+python analyze_chirp.py ~/data/chirp_loopback -c hfrx -l 10000 -s 0 -n freqstep.log
 
 -c channel, -l code length, -r samplerate, -s starttime, 
 
