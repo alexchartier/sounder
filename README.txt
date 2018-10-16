@@ -73,6 +73,7 @@ TODO:
 python create_waveform.py -l 10000 -b 10 -s 0
 
 # tx
+<<<<<<< HEAD
 python tx_chirp.py -m 192.168.10.3 -d "A:A" -f freq_list.txt -G 1 -g 0 -r 1e6 waveforms/code-l10000-b10-000000.bin
 
 # rx
