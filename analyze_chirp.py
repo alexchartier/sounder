@@ -158,6 +158,8 @@ def read_log(logfile):
     samples = np.array(samples)
 
     time = times[:-1] + (times[1:] - times[:-1]) / 2
+    anlen = np.round((samples[1:] - samples[:-1]) / 1E3) * 1E3  # Needs to be clean because DSP delay depends on #samples
+    #anlen = samples[1:] - samples[:-1]
     data = {
             'freq': freqs[:-1],
              'idx': samples[:-1],
@@ -242,7 +244,7 @@ if __name__ == '__main__':
   
     for time, row in idx_data.iterrows():
         try:
-            dsp_delay = 7600
+            dsp_delay = 7600  
             idx = np.array(int(row['idx'])) + dsp_delay
             res = analyze_prc(
                 data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,
@@ -287,7 +289,5 @@ if __name__ == '__main__':
             ))
             print('%s' % timestr)
 
-        #except IOError:
-        #    print('IOError, skipping.')
-    
-    # <<<<<<<<<<<<<<
+        except IOError:
+            print('IOError, skipping.')
