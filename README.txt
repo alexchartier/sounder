@@ -16,6 +16,13 @@ python odin.py -m 192.168.10.13 -d "A:A" -c hfrx -f freq_lists/freq_list.txt -r 
 python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
 
 
+################################
+######        TO DO       ######
+################################
+
+1. Create loopback calibration code
+2. Make sure each day freq_stepper.log goes into a different day file
+3. Store the Ms from analyze_chirp and stack them up to make ionograms
 
 
 ################################
@@ -111,7 +118,9 @@ python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
     and in that configuration the internal GPSDO (if present) SMA cables are unplugged. 
     That way the Octoclock provides 50MHz and PPS while the internal GPSDO provides timestamps
     
-
+# Having git save your password:
+    git config credential.helper store
+    then push/pull and it will save your details
 
 ###############################################
 ######## Computer Deployment Checklist ########
@@ -122,6 +131,5 @@ python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
 3. Disk is not filling up
 4. uhd_find_devices 
 5. External drives mounted correctly
-6. Check operation using loopback (is DSP delay set correctly?) 
-    - should have a receipt at rangegate 10 using dsp_delay = 7640 in analyze_chirp
-
+6. Loopback test (look for signal on gnuradio/gr-uhd/apps/uhd_fft -f 5E6)
+7. DSP delay calibration (receive only)
