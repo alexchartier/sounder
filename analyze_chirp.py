@@ -250,25 +250,32 @@ if __name__ == '__main__':
 
             M = 10.0 * np.log10((np.abs(res['spec'])))
 
-            """
-            ######### experimental axis-labelling code
-            baud_len_secs = 1 / (sr) * 10  # assuming 10x oversampling
-            rangegate_len_km = baud_len_secs * 3E5
-            range_km = np.arange(M.shape[1]) * rangegate_len_km
-            doppler_freq_hz = np.fft.fftshift(np.fft.fftfreq(M.shape[0], d=op.codelen/sr))  
-            carrier_wlen = 3E8 / (row['freq'] * 1E6)
-            doppler_vel_ms = doppler_freq_hz * carrier_wlen
+            # calculate plot parameters
+            tx_freq = row['freq'] * 1E6
+            sample_rate = sr
+            code_len_bauds = op.codelen
+            freq_dwell_time = row['anlen'] / sample_rate
+
+            # Range characteristics (y-axis)
+            sample_len_secs = 1 / sample_rate
+            rangegate = sample_len_secs * 3e8
+            ranges = np.arange(op.nranges) * rangegate
+
+            # Doppler characteristics (x-axis)
+            code_len_secs = sample_len_secs * code_len_bauds
+            tx_wlen = 3E8 / tx_freq
+            doppler_bandwidth_hz = sample_rate / code_len_bauds
+            doppler_res_hz = doppler_bandwidth_hz / (freq_dwell_time / code_len_secs)
+            doppler_res_ms = doppler_res_hz * tx_wlen / 2
+            vels = (np.arange(M.shape[0]) - M.shape[0] / 2) * doppler_res_ms
             
-            plt.pcolormesh(doppler_vel_ms, range_km, np.transpose(M), vmin=(np.median(M) - 1.0))
+            plt.pcolormesh(vels, ranges / 1E3, np.transpose(M), vmin=(np.median(M) - 1.0))
             plt.ylabel('range (km)')
             plt.xlabel('Doppler velocity (m/s)')
             clb = plt.colorbar()
             clb.set_label('Intensity / dB')
 
-            ######### 
-            """
-            
-            plt.pcolormesh(np.transpose(M), vmin=(np.median(M) - 1.0))
+            #plt.pcolormesh(np.transpose(M), vmin=(np.median(M) - 1.0))
             timestr = time.strftime('%Y-%m-%d %H:%M:%S')
             plt.title('%s %f MHz' % (timestr, row['freq']))
             plt.savefig(os.path.join(

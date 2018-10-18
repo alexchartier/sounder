@@ -18,26 +18,35 @@ import pytz
 import digital_rf as drf
 
 
+def main():
+    # Test out the frequency stepper
+    freq_list_fname = 'freq_list_default.txt'
+    step([], [], freq_list_fname=freq_list_fname)
+
 
 def step(
          usrp, op, ch_num=0, 
                    sleeptime=0.1, 
-                   out_fname=None
-    ):
+                   out_fname=None,
+                   freq_list_fname=None,
+):
     """ Step the USRP's oscillator through a list of frequencies """
+    if freq_list_fname:
+        freq_list = get_freq_list(freq_list_fname) if freq_list_fname else set_freq_list()
+    else:
+        freq_list = set_freq_list()
 
     print('Starting freq_stepper')
-    freq_list = set_freq_list()
     if out_fname:
         with open(out_fname, 'a') as f:
             f.write('Tune time (UT)   Freq (MHz)   Tune sample\n')
 
     # Check for GPS lock
-    print('Checking for GPS lock...')
+
     while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
         print("waiting for gps lock...")
         time.sleep(5)
-    print('.....locked')
+    assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
 
     # Begin infinite transmission loop
     freq = 0
@@ -122,58 +131,29 @@ def set_dev_time(usrp, timetype):
         print('Time set using %s' % timetype)
 
 
+def get_freq_list(freq_list_fname):
+    freq_list = {}
+    with open(freq_list_fname, 'r') as f:
+        for line in f:
+            try:
+                k, v = line.split(':')
+                freq_list[int(k)] = float(v) 
+            except:
+                None
+        assert len(freq_list) > 0, "Could not load %s" % freq_list_fname
+    return freq_list
+
+
 def set_freq_list():
-    # time, freq (MHz)
-    # This could be set in a text file, but it's important to understand the function above when choosing times
+    # shift time (seconds), freq (MHz)
     return {
              0: 3.0,
-            10: 4.6,
-            20: 4.7,
-            30: 4.8,
-            40: 4.9,
-            50: 5.1,
+            10: 4.0,
+            20: 5.1,
+            30: 8.0,
+            40: 12.0,
+            50: 16.0,
            }
 
-    """
-    return {
-            0: 2, 
-            5: 3, 
-            10: 4, 
-            15: 5,
-            20: 6,
-            25: 7,
-            30: 8,
-            35: 9,
-            40: 10,
-            45: 11,
-            50: 12,
-            55: 13,
-            }
-
-
-    return {
-             0: 2,
-             1: 2.5,
-             2: 3,
-             3: 3.5,
-             4: 4,
-             5: 4.5,
-             6: 5,
-             7: 5.5,
-             8: 6,
-             9: 6.5,
-            10: 7,
-            11: 7.5,
-            12: 8,
-            13: 8.5,
-            14: 9,
-            15: 9.5,
-            16: 10,
-            17: 10.5,
-            18: 11,
-            19: 11.5,
-            20: 12,
-            21: 5,
-           }
-    """
-
+if __name__ == '__main__':
+    main()

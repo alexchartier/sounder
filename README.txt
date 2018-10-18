@@ -73,10 +73,10 @@ TODO:
 python create_waveform.py -l 10000 -b 10 -s 0
 
 # tx
-python tx_chirp.py -m 192.168.10.2 -d "A:A" -f 3.6e6 -G 0.25 -g 0 -r 1e6 code-l10000-b10-000000.bin
+python tx_chirp.py -m 192.168.10.2 -d "A:A" -f freq_list.txt -G 0.25 -g 0 -r 1e6 code-l10000-b10-000000.bin
 
 # rx
-odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 -i 10 ~/data/prc
+odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f freq_list.txt -r 1e6 -i 10 ~/data/prc
 
 # analysis
 python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
@@ -101,3 +101,15 @@ python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
     Add the following to /etc/fstab (with correct UUID from blkid /dev/sdb)
     # dev/sdb1
     UUID=62dd164d-0150-4d07-a0c4-31417a1ab6d9 /data           ext4 nofail,auto,noatime,rw,user 0 0
+
+# Receiver problems (no dots)
+    The following error is fatal and needs to be fixed for the receiver to work
+        gr::log :WARN: gr uhd usrp source0 - USRP Source Block caught rx error code: 2
+    One possibility is that two conflicting PPS signals are being provided to the USRP. 
+    In that case, disconnect the external or internal PPS and the problem should go away. 
+    For octoclock operation, the PPS and 50MHz should both be plugged in externally, 
+    and in that configuration the internal GPSDO (if present) SMA cables are unplugged. 
+    That way the Octoclock provides 50MHz and PPS while the internal GPSDO provides timestamps
+    
+
+
