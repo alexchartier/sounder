@@ -13,11 +13,11 @@ tx_freq = 33E6
 
 # inputs  (first three MUST match in Tx and Rx)
 sample_rate = 1E6
-baud_oversampling = 100  
-code_len_bauds = 10000  # (-l)
+baud_oversampling = 40  
+code_len_bauds = 400  # (-l)
 
 nranges = 1000  # (-r)
-freq_dwell_time = 3   # for chirpsounder the radar sits on a specified frequency until it moves to the next one
+freq_dwell_time = 5   # for chirpsounder the radar sits on a specified frequency until it moves to the next one
 tx_freq = 10E6
 freq_list = np.linspace(2, 12, 21) * 1E6
 
@@ -45,9 +45,10 @@ print("Ranges analyzed: %i" % nranges)
 print('Analysis length: %1.1f seconds, %i samples ' % (freq_dwell_time, an_len_samples))
 print('Frequency list: %s' % str(freq_list / 1E6))
 print('Ne list: %s x 1E10 electrons/m3' % str(1.24 * (freq_list/1E6) ** 2)) 
-print('\n\n*** expected outputs at %2.2f MHz ***' % (tx_freq / 1E6))
+print('\n\n*** expected outputs at %2.2f MHz (***' % (tx_freq / 1E6))
 
 # How much velocity resolution to expect?
+print('Transmitter bandwidth: %2.2f kHz\n' % (sample_rate / (code_len_bauds / baud_oversampling) / 1E3))
 tx_wlen = 3E8 / tx_freq
 doppler_bandwidth_hz = sample_rate / (baud_oversampling * code_len_bauds)
 doppler_res_hz = doppler_bandwidth_hz / (freq_dwell_time / code_len_secs)
@@ -59,14 +60,14 @@ sample_len_secs = 1 / sample_rate
 baud_len_secs = sample_len_secs * baud_oversampling 
 rangegate = baud_len_secs * 3e8
 range_res = rangegate / 2  # Not sure why this is the case - see paper
+print('\nrange aliasing occurs at %1.1f km' % (code_len_secs * 3E8 / 1E3))
 print('rangegate size %1.1f km?' % (baud_len_secs * 3E5))
-print('range resolution (1/2 rangegate) at %1.1f MHz sampling: %2.2f km' % (sample_rate / 1E6,  range_res / 1E3))
-print('range aliasing occurs at %1.1f km\n' % (rangegate * nranges / 1E3))
+print('altitude resolution (1/2 rangegate) at %1.1f MHz sampling: %2.2f km' % (sample_rate / 1E6,  range_res / 1E3))
 
 
 # How much data to expect?
 tera_day = sample_rate * sample_size_bytes * day_secs / terabyte_units / baud_oversampling
 tera_year = tera_day * 365
-print("%2.2f terabytes/day, %2.2f terabytes/year for %2.1f MHz sampling" % (tera_day, tera_year, sample_rate / 1E6))
+print("%2.2f terabytes/day, %2.2f terabytes/year for %2.1f MHz sampling (based on %i byte samples and %ix oversampling)" % (tera_day, tera_year, sample_rate / 1E6, sample_size_bytes, baud_oversampling))
 
 print('\n\n')

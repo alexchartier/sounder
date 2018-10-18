@@ -44,14 +44,13 @@ python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
                  c) the code optionally removes RFI by "whitening" the signal
     
 
-# Questions for Juha:
-    3. Can we do different baud oversampling on Tx and Rx side? NO
-
+    
+# Hardware instructions:
 	Disconnect all GPSdos if using octoclock - check jumper settings too
 	Get a better GPS antenna for the Tx side
 	Go to  10000 baud, 100 kHz code to remove range ambiguity. 
 
-# If no dots from the receiver end (e.g nothing gets recorded)
+# If no dots from the receiver end (e.g nothing gets recorded):
 	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
     recompile and install gnuradio
 	
@@ -62,7 +61,8 @@ python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
      Using network manager, set the relevant ethernet port's IP to 192.168.10.X where X is NOT 2 (or the USRP's number)
         (note ifconfig provides only a temporary fix, but does let you check the IP has been set correctly)
      Plug in the USRP and run uhd_find_devices to make sure it's visible. 
-     In case of firmware upgrade, you have to power-cycle the USRP after upgrading the firmware. May also have to downgrade UHD to get it to upgrade
+     In case of firmware upgrade, you have to power-cycle the USRP after upgrading the firmware.
+         May also have to downgrade UHD to get it to upgrade
      To change USRP IP address:
             cd /usr/local/lib/uhd/utils
             ./usrp_burn_mb_eeprom --args="ip-addr=192.168.10.2" --values="ip-addr=192.168.10.11"
@@ -81,6 +81,25 @@ python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
 	2. Test all cables for continuity with one end bridged, or with a cable tester
 	3. Locate the GPS receiver somewhere that it can see satellites
 
+<<<<<<< HEAD
+=======
+
+# create a waveform
+python create_waveform.py -l 10000 -b 10 -s 0
+
+# tx
+<<<<<<< HEAD
+python tx_chirp.py -m 192.168.10.3 -d "A:A" -f freq_list.txt -G 1 -g 0 -r 1e6 waveforms/code-l10000-b10-000000.bin
+
+# rx
+python odin.py -m 192.168.10.13 -d "A:A" -c hfrx -f freq_list.txt -r 1e6 -i 10 ~/data/chirp_loopback
+
+# analysis
+python analyze_chirp.py ~/data/chirp_loopback -c hfrx -l 10000 -s 0 -n freqstep.log
+
+-c channel, -l code length, -r samplerate, -s starttime, 
+
+>>>>>>> c2df04f45adb5dcd779bc81d3998ee8ecbf7f1e9
 # Automated running
 # See run_tx. Automated running is achieved by: 
     1. Set the computer's BIOS to turn on after power outage 
@@ -95,8 +114,19 @@ python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
     Also available in the repository - plugable_drivers.tar.gz
     Follow README instructions in there - note I did not need the modprobe usbnet command
 
-
 # Attaching an external hard drive automatically:
     Add the following to /etc/fstab (with correct UUID from blkid /dev/sdb)
     # dev/sdb1
     UUID=62dd164d-0150-4d07-a0c4-31417a1ab6d9 /data           ext4 nofail,auto,noatime,rw,user 0 0
+
+# Receiver problems (no dots)
+    The following error is fatal and needs to be fixed for the receiver to work
+        gr::log :WARN: gr uhd usrp source0 - USRP Source Block caught rx error code: 2
+    One possibility is that two conflicting PPS signals are being provided to the USRP. 
+    In that case, disconnect the external or internal PPS and the problem should go away. 
+    For octoclock operation, the PPS and 50MHz should both be plugged in externally, 
+    and in that configuration the internal GPSDO (if present) SMA cables are unplugged. 
+    That way the Octoclock provides 50MHz and PPS while the internal GPSDO provides timestamps
+    
+
+

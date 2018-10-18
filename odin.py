@@ -33,7 +33,10 @@ import digital_rf as drf
 import gr_digital_rf as gr_drf
 
 import freq_stepper
+from freq_stepper import set_dev_time
 import pdb
+
+epoch = datetime(1970, 1, 1, tzinfo=pytz.utc)
 
 def equiripple_lpf(
     cutoff=0.45, transition_width=0.1, attenuation=80, pass_ripple=None,
@@ -159,6 +162,7 @@ class Thor(object):
         ch_out_types=[None],
         # digital_rf group (apply to all)
         file_cadence_ms=1000, subdir_cadence_s=3600, metadata={}, uuid=None,
+        freq_list_fname=None,
     ):
         options = locals()
         del options['self']
@@ -620,15 +624,14 @@ class Thor(object):
                 op.resampling_filter_taps.append(np.zeros(0))
                 op.resampling_filter_delays.append(0)
             else:
-                taps=np.repeat(1.0,100.0)
-       #         taps = equiripple_lpf(
-      #              cutoff=float(op.ch_lpf_cutoffs[ko] * ratio),
-     #               transition_width=float(
-    #                    op.ch_lpf_transition_widths[ko] * ratio
-   #                 ),
-  #                  attenuation=op.ch_lpf_attenuations[ko],
- #                   pass_ripple=op.ch_lpf_pass_ripples[ko],
-#                )
+                taps = equiripple_lpf(
+                    cutoff=float(op.ch_lpf_cutoffs[ko] * ratio),
+                    transition_width=float(
+                        op.ch_lpf_transition_widths[ko] * ratio
+                    ),
+                    attenuation=op.ch_lpf_attenuations[ko],
+                    pass_ripple=op.ch_lpf_pass_ripples[ko],
+                )
                 op.resampling_filter_taps.append(taps)
                 op.resampling_filter_delays.append((len(taps) - 1) // 2)
 
@@ -717,7 +720,7 @@ class Thor(object):
             time.sleep(1)
 
         # get UHD USRP source
-        usrp = self._usrp_setup()
+        u = self._usrp_setup()
 
         # finalize options (for settings that depend on USRP setup)
         self._finalize_options()
@@ -726,24 +729,30 @@ class Thor(object):
         # (after setting time/clock sources, before setting the
         # device time)
         # this fixes timing with the B210
-        usrp.start()
+        u.start()
         # need to wait >0.1 s (constant in usrp_source_impl.c) for start/stop
         # to actually take effect, so sleep a bit, 0.5 s seems more reliable
         time.sleep(0.5)
-        usrp.stop()
+        u.stop()
         time.sleep(0.2)
 
         # set device time
-        if op.sync:  # using GPSDO 
-            while int(usrp.get_time_last_pps().get_real_secs()) != usrp.get_mboard_sensor("gps_time").to_int():
-                print('USRP time %i, GPS time %i' %(int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
-                usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2)) 
-                time.sleep(1)
-
-        else:  # Using NTP
-            tt = time.time()
-            usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
-            time.sleep(1)
+        tt = time.time()
+        if op.sync:
+            # wait until time 0.2 to 0.5 past full second, then latch
+            # we have to trust NTP to be 0.2 s accurate
+            while tt - math.floor(tt) < 0.2 or tt - math.floor(tt) > 0.3:
+                time.sleep(0.01)
+                tt = time.time()
+            if op.verbose:
+                print('Latching at ' + str(tt))
+            # waits for the next pps to happen
+            # (at time math.ceil(tt))
+            # then sets the time for the subsequent pps
+            # (at time math.ceil(tt) + 1.0)
+            u.set_time_unknown_pps(uhd.time_spec(math.ceil(tt) + 1.0))
+        else:
+            u.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
@@ -766,7 +775,7 @@ class Thor(object):
         ct_td = lt - drf.util.epoch
         ct_secs = ct_td.total_seconds() // 1.0
         ct_frac = ct_td.microseconds / 1000000.0
-        usrp.set_start_time(
+        u.set_start_time(
             uhd.time_spec(ct_secs) + uhd.time_spec(ct_frac)
         )
 
@@ -912,12 +921,12 @@ class Thor(object):
                     # receiver metadata for USRP
                     receiver=dict(
                         description='UHD USRP source using GNU Radio',
-                        info=dict(usrp.get_usrp_info(chan=kr)),
+                        info=dict(u.get_usrp_info(chan=kr)),
                         antenna=op.antennas[kr],
                         bandwidth=op.bandwidths[kr],
                         center_freq=op.centerfreqs[kr],
-                        clock_rate=usrp.get_clock_rate(mboard=mbnum),
-                        clock_source=usrp.get_clock_source(mboard=mbnum),
+                        clock_rate=u.get_clock_rate(mboard=mbnum),
+                        clock_source=u.get_clock_source(mboard=mbnum),
                         dc_offset=op.dc_offsets[kr],
                         gain=op.gains[kr],
                         id=op.mboards_bychan[kr],
@@ -926,10 +935,10 @@ class Thor(object):
                         lo_offset=op.lo_offsets[kr],
                         lo_source=op.lo_sources[kr],
                         otw_format=op.otw_format,
-                        samp_rate=usrp.get_samp_rate(),
+                        samp_rate=u.get_samp_rate(),
                         stream_args=','.join(op.stream_args),
                         subdev=op.subdevs_bychan[kr],
-                        time_source=usrp.get_time_source(mboard=mbnum),
+                        time_source=u.get_time_source(mboard=mbnum),
                     ),
                     processing=dict(
                         channelizer_filter_taps=op.channelizer_filter_taps[ko],
@@ -947,11 +956,10 @@ class Thor(object):
                 debug=op.verbose,
             )
 
-            connections = [(usrp, kr)]
+            connections = [(u, kr)]
             if resampler is not None:
                 connections.append((resampler, 0))
-                # juha: remove delay
-#                connections.append((resampler_skiphead, 0))
+                connections.append((resampler_skiphead, 0))
             if rotator is not None:
                 connections.append((rotator, 0))
             if channelizer is not None:
@@ -973,19 +981,18 @@ class Thor(object):
             time.sleep(0.1)
         fg.start()
 
+        time.sleep(5)
         # Step through freqs
-        freqstep_log_fname = time.strftime(os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log')
-        freq_stepper.step(usrp, op, out_fname=freqstep_log_fname, time_source='octoclock')
-        
-        # wait until end time or until flowgraph stops
-        if et is None and duration is not None:
-            et = lt + timedelta(seconds=duration)
+        freqstep_log_fname = os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log'
+        freq_stepper.step(u, op, freq_list_fname=op.freq_list_fname, out_fname=freqstep_log_fname)
+
+        # wait until flowgraph stops
         try:
             if et is None:
                 fg.wait()
             else:
                 # sleep until end time nears
-                while (pytz.utc.localize(datetime.utcnow()) <
+                while(pytz.utc.localize(datetime.utcnow()) <
                         et - timedelta(seconds=2)):
                     time.sleep(1)
                 else:
@@ -1182,11 +1189,6 @@ def _add_receiver_group(parser):
 def _add_rchannel_group(parser):
     chgroup = parser.add_argument_group(title='receiver channel')
     chgroup.add_argument(
-        '-f', '--centerfreq', dest='centerfreqs', action=Extend,
-        type=evalfloat,
-        help='''Center frequency in Hz. (default: 100e6)''',
-    )
-    chgroup.add_argument(
         '-F', '--lo_offset', dest='lo_offsets', action=Extend, type=evalfloat,
         help='''Frontend tuner offset from center frequency, in Hz.
                 (default: 0)''',
@@ -1264,7 +1266,7 @@ def _add_ochannel_group(parser):
         type=evalint,
         help='''DEPRECATED: use +r/--ch_samplerate instead. If used,
                 all ch_samplerate arguments will be ignored!
-                Integrate and decimate an output channel by this factor
+                Integrate and decimate by an output channel by this factor
                 using a low-pass filter (specifications supplied by lpf_*
                 options). (default: 1)''',
     )
@@ -1370,6 +1372,16 @@ def _add_time_group(parser):
                 (default: wait for Ctrl-C)''',
     )
     timegroup.add_argument(
+        '-f', '--freq_list', dest='freq_list_fname',
+        help='''Text file with list of tune times in format:
+        time (in seconds of each minute): frequency (in MHz), e.g.:
+        0:   3
+        15:  6
+        30:  9
+        45:  12
+        (default: None)''',
+    )   
+    timegroup.add_argument(
         '-l', '--duration', dest='duration', type=evalint,
         help='''Duration of experiment in seconds. When endtime is not given,
                 end this long after start time. (default: wait for Ctrl-C)''',
@@ -1388,8 +1400,8 @@ def _build_thor_parser(Parser, *args):
     formatter = RawDescriptionHelpFormatter(scriptname)
     width = formatter._width
 
-    title = 'Odin (Son of THOR)'
-    copyright = 'Copyright (c) 2017 Massachusetts Institute of Technology & (c) 2018 Johns Hopkins APL'
+    title = 'THOR (The Haystack Observatory Recorder)'
+    copyright = 'Copyright (c) 2017 Massachusetts Institute of Technology'
     shortdesc = 'Record data from synchronized USRPs in DigitalRF format.'
     desc = '\n'.join((
         '*'*width,
@@ -1401,7 +1413,7 @@ def _build_thor_parser(Parser, *args):
     ))
 
     usage = (
-        '%(prog)s [-m MBOARD] [-d SUBDEV] [-c CH] [-y ANT] [-f FREQ]'
+        '%(prog)s [-m MBOARD] [-d SUBDEV] [-c CH] [-y ANT] [-f freq_list]'
         ' [-F OFFSET] \\\n'
         '{0:8}[-g GAIN] [-b BANDWIDTH] [-r RATE] [options] DIR\n'.format('')
     )
@@ -1435,8 +1447,8 @@ def _build_thor_parser(Parser, *args):
     )
     egs = [
         '''\
-        {0} -m 192.168.20.2 -d "A:A A:B" -c h,v -f 95e6 -r 100e6/24
-        /data/test
+        {0} -m 192.168.10.13 -d "A:A" -c h,v -f freq_list.txt -r 1e6
+        ~/data/test
         ''',
         '''\
         {0} -m 192.168.10.2 -d "A:0" -c ch1 -y "TX/RX" -f 20e6 -F 10e3 -g 20

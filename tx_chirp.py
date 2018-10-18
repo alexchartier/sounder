@@ -211,6 +211,7 @@ class Tx(object):
         dev_args=[], stream_args=[], tune_args=[],
         sync=True, sync_source='external',
         realtime=False, verbose=True, test_settings=True,
+        freq_list_fname=None,
     ):
         options = locals()
         del options['self']
@@ -583,15 +584,9 @@ class Tx(object):
 
         # Set device time
         if op.sync:  # using the onboard GPS
-            while int(usrp.get_time_last_pps().get_real_secs()) != usrp.get_mboard_sensor("gps_time").to_int():
-                print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
-                usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2))
-                time.sleep(1)
+            freq_stepper.set_dev_time(usrp, 'GPS')
         else:  # using NTP
-            tt = time.time()
-            usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
-            # wait for time registers to be in known state
-            time.sleep(1)
+            freq_stepper.set_dev_time(usrp, 'NTP')
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
@@ -641,11 +636,8 @@ class Tx(object):
             time.sleep(0.1)
         fg.start()
 
-        # >>>>>>>>>>>>>>>>
         # Step the USRP through a list of frequencies
-
         freq_stepper.step(usrp, op, freq_list_fname=op.freq_list_fname) 
-        # <<<<<<<<<<<<<<<<
 
         # wait until end time or until flowgraph stops
         if et is None and duration is not None:
