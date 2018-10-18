@@ -11,9 +11,9 @@ python prc_analyze.py /data/prc -c hfrx -l 10000 -s 0
 
 # Stepped example using ./sounder
 cd waveforms; python create_waveform.py -l 10000 -b 10 -s 0 -f; cd ..
-python tx_chirp.py -m 192.168.10.2 -d "A:A" -f freq_lists/freq_list.txt -G 1 -g 0 -r 1e6 code-l10000-b10-000000f.bin
-python odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f freq_lists/freq_list.txt -r 1e6 -i 10 ~/data/prc
-python analyze_chirp.py ~/data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
+python tx_chirp.py -m 192.168.10.3 -d "A:A" -f freq_lists/freq_list.txt -G 1 -g 0 -r 1e6 waveforms/code-l10000-b10-000000f.bin
+python odin.py -m 192.168.10.13 -d "A:A" -c hfrx -f freq_lists/freq_list.txt -r 1e6 -i 10 /data/chirp
+python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
 
 
 
