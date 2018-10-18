@@ -624,6 +624,7 @@ class Thor(object):
                 op.resampling_filter_taps.append(np.zeros(0))
                 op.resampling_filter_delays.append(0)
             else:
+                #taps=np.repeat(1.0,100.0)  # Juha's taps
                 taps = equiripple_lpf(
                     cutoff=float(op.ch_lpf_cutoffs[ko] * ratio),
                     transition_width=float(
@@ -631,7 +632,7 @@ class Thor(object):
                     ),
                     attenuation=op.ch_lpf_attenuations[ko],
                     pass_ripple=op.ch_lpf_pass_ripples[ko],
-                )
+                )  # Ryan Volz's taps
                 op.resampling_filter_taps.append(taps)
                 op.resampling_filter_delays.append((len(taps) - 1) // 2)
 
