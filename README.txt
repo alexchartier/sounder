@@ -41,6 +41,8 @@ python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
     other stuff: a) the code removes a DC offset from the signal, 
                  b) A blackman-harris window is applied to filter the signal
                  c) the code optionally removes RFI by "whitening" the signal
+                 d) there is a DSP-related delay in the receiver. 
+                    If you get a solid line on zero doppler, try changing the delay in analyze_chirp.py or prc_analyze.py
     
 
     
