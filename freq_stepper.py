@@ -30,6 +30,7 @@ def step(usrp, op,
          out_fname=None,
          freq_list_fname=None,
          time_source='GPS',
+         timestr='%Y%b%d %H:%M:%S.%f'
 ):
     """ Step the USRP's oscillator through a list of frequencies """
     if freq_list_fname:
@@ -75,10 +76,11 @@ def step(usrp, op,
         # Frequency shifting block
         #    Change frequency each time we hit a new time in the list, otherwise hold the existing note
         if ((time_next.second) in freq_list.keys()) and (freq != freq_list[time_next.second]):
+            tune_time = time_next
             freq = freq_list[time_next.second]
 
             # Specify USRP tune time on the first exact sample after listed time
-            tune_time_secs = (time_next - drf.util.epoch).total_seconds()
+            tune_time_secs = (tune_time - drf.util.epoch).total_seconds()
             tune_time_rsamples = np.ceil(tune_time_secs * op.samplerate)
             tune_time_secs = tune_time_rsamples / op.samplerate
 
@@ -88,9 +90,9 @@ def step(usrp, op,
             # Optionally write out the shift samples of each frequency
             tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
             if out_fname:
-                with open(time_next.strftime(out_fname), 'a') as f:
+                with open(tune_time.strftime(out_fname), 'a') as f:
                     # f.write('GPS lock status: %s' % str(gps_lock))
-                    f.write('%s %s %i\n' % (time_next.strftime('%Y/%m/%d-%H:%M:%S.%f'), \
+                    f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), \
                             str(freq).rjust(4), tune_sample))
           
             usrp.set_command_time(
@@ -101,22 +103,26 @@ def step(usrp, op,
             # Tune to the next frequency in the list
             tune_res = usrp.set_center_freq(
                             uhd.tune_request(freq * 1E6, op.lo_offsets[ch_num], \
-                                             args=uhd.device_addr(','.join(op.tune_args)),
-                                            ),
+                                 args=uhd.device_addr(','.join(op.tune_args)),
+                            ),
                             ch_num,
             )
 
             usrp.clear_command_time(uhd.ALL_MBOARDS)
             if op.verbose:
-                print('Tuned to %s MHz at time %s (sample %i)' % \
-                        (str(freq).rjust(4))
-                        tune_time.strftime('%Y%b%d %H:%M:%S'), 
+                print('Tuned to %s MHz at intended time %s (sample %i)' % \
+                        (str(freq).rjust(4),
+                        tune_time.strftime(timestr), 
                         tune_sample, 
                         )
                 )
-                print('GPS tune time: %s' %
-                    datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time")
+                gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+                usrptime = drf.util.epoch + timedelta(seconds=usrp.get_time_now().get_real_secs())
+                print('GPS tune time:  %s\nUSRP tune time: %s' %
+                    (gpstime.strftime(timestr),
+                    usrptime.strftime(timestr))
                 )
+                
 
         time.sleep(sleeptime)
 
