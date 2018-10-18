@@ -1,4 +1,28 @@
-# example prc transmit, record, and processing
+################################
+##### Runtime instructions #####
+################################
+
+# CW example from digital_rf-master/python/examples/sounder
+cd waveforms; python create_waveform.py -l 10000 -b 10 -s 0 -f; cd ..
+python tx.py -m 192.168.10.3 -d "A:A" -f 3.6e6 -G 1 -g 0 -r 1e6 waveforms/code-l10000-b10-000000f.bin
+thor.py -m 192.168.10.13 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 -i 10 /data/prc
+python prc_analyze.py /data/prc -c hfrx -l 10000 -s 0
+
+
+# Stepped example using ./sounder
+cd waveforms; python create_waveform.py -l 10000 -b 10 -s 0 -f; cd ..
+
+python tx_chirp.py -m 192.168.10.2 -d "A:A" -f freq_list.txt -G 1 -g 0 -r 1e6 code-l10000-b10-000000f.bin
+python odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f freq_list.txt -r 1e6 -i 10 ~/data/prc
+python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
+
+
+
+
+################################
+###### Other Information  ######
+################################
+
 
 # see the following paper for a description and application of the technique:
 # Vierinen, J., Chau, J. L., Pfeffer, N., Clahsen, M., and Stober, G.,
@@ -20,26 +44,15 @@
                  c) the code optionally removes RFI by "whitening" the signal
     
 
-# Questions for Juha:
-    1. Can the transmitter lose lock and keep on transmitting?  
-        - yes, need to query it every 10s or so - usrp.get_sensor("gps_locked") or get_mboard_sensor
-    2. Doppler frequency resolution?
-        - nsamples (number of whole code-blocks) in a transmission
-    3. Can we do different baud oversampling on Tx and Rx side? 
-        - NO
-
-TODO:
-    (software)
-	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
-	Get tx_chirp.py to initially set the time (time.time()....) from the GPSDO and odin.py to set it from the Octoclock
-	Can we get GPS time from the Octoclock!!!!! We need a way of getting the time from that. 
-    Query GPS lock every 10s or so - usrp.get_sensor("gps_locked") or get_mboard_sensor
-	Go to 10000 baud, 100 kHz code to remove range ambiguity. 
-    implement Juha's power domain analysis to improve Doppler resolution
-
-    (hardware)
+    
+# Hardware instructions:
 	Disconnect all GPSdos if using octoclock - check jumper settings too
 	Get a better GPS antenna for the Tx side
+	Go to  10000 baud, 100 kHz code to remove range ambiguity. 
+
+# If no dots from the receiver end (e.g nothing gets recorded):
+	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
+    recompile and install gnuradio
 	
 
 # Before running the following code:
@@ -68,20 +81,6 @@ TODO:
 	2. Test all cables for continuity with one end bridged, or with a cable tester
 	3. Locate the GPS receiver somewhere that it can see satellites
 
-
-# create a waveform
-python create_waveform.py -l 10000 -b 10 -s 0
-
-# tx
-python tx_chirp.py -m 192.168.10.2 -d "A:A" -f freq_list.txt -G 0.25 -g 0 -r 1e6 code-l10000-b10-000000.bin
-
-# rx
-odin.py -m 192.168.10.3 -d "A:A" -c hfrx -f freq_list.txt -r 1e6 -i 10 ~/data/prc
-
-# analysis
-python analyze_chirp.py ~/data/prc -c hfrx -l 10000 -s 0 -n freqstep.log
-
--c channel, -l code length, -r samplerate, -s starttime, 
 
 # Automated running
 # See run_tx. Automated running is achieved by: 
