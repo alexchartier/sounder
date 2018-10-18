@@ -109,6 +109,9 @@ def analyze_prc(
 
     code = create_pseudo_random_code(clen=clen, seed=station)
     N = an_len / clen  # What is N? Number of waveform repetitions in the signal
+    assert N == np.floor(N), 'N is not an integer'
+    N = int(N)
+
     res = np.zeros([N, Nranges], dtype=np.complex64)
     r = create_estimation_matrix(code=code, cache=cache, rmax=Nranges)
     B = r['B']  # B is the estimation matrix?
@@ -239,7 +242,8 @@ if __name__ == '__main__':
    
     for time, row in idx_data.iterrows():
         try:
-            idx = np.array(int(row['idx']))
+            dsp_delay = 7600
+            idx = np.array(int(row['idx'])) + dsp_delay
             res = analyze_prc(
                 data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,
                 station=op.station, Nranges=op.nranges,
