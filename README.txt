@@ -130,3 +130,15 @@ python analyze_chirp.py ~/data/chirp_loopback -c hfrx -l 10000 -s 0 -n freqstep.
     
 
 
+###############################################
+######## Computer Deployment Checklist ########
+###############################################
+
+1. Computer restarts and goes back to operating after a power outage
+2. Can access GitHub
+3. Disk is not filling up
+4. uhd_find_devices 
+5. External drives mounted correctly
+6. Check operation using loopback (is DSP delay set correctly?) 
+    - should have a receipt at rangegate 10 using dsp_delay = 7640 in analyze_chirp
+

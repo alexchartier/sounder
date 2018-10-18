@@ -7,7 +7,12 @@
 #
 # The full license is in the LICENSE file, distributed with this software.
 # ----------------------------------------------------------------------------
-"""Record data from synchronized USRPs in Digital RF format."""
+"""Record data from synchronized USRPs in Digital RF format.
+NOTE: this is a development version where we try to get the USRP time from GPS
+I never got this to work, but I did set the frequency shift time from GPS in 
+freq_stepper, so the USRP time only affects the sample numbers now
+
+"""
 from __future__ import division, print_function
 
 import math
