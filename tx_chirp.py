@@ -581,6 +581,11 @@ class Tx(object):
         # get UHD USRP source
         usrp = self._usrp_setup()
 
+        # Check for GPS lock
+        while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
+            print("waiting for gps lock...")
+            time.sleep(5)
+        assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
 
         # Set device time
         if op.sync:  # using the onboard GPS
