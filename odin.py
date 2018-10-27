@@ -721,7 +721,13 @@ class Thor(object):
             time.sleep(1)
 
         # get UHD USRP source
-        u = self._usrp_setup()
+        usrp = self._usrp_setup()
+
+        # Check for GPS lock
+        while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
+            print("waiting for gps lock...")
+            time.sleep(5)
+        assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
 
         # finalize options (for settings that depend on USRP setup)
         self._finalize_options()
@@ -730,20 +736,24 @@ class Thor(object):
         # (after setting time/clock sources, before setting the
         # device time)
         # this fixes timing with the B210
-        u.start()
+        usrp.start()
         # need to wait >0.1 s (constant in usrp_source_impl.c) for start/stop
         # to actually take effect, so sleep a bit, 0.5 s seems more reliable
         time.sleep(0.5)
-        u.stop()
+        usrp.stop()
         time.sleep(0.2)
 
         # set device time
+        #print('trying to get started using GPS')
+        #gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+        #tt = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
         tt = time.time()
         if op.sync:
             # wait until time 0.2 to 0.5 past full second, then latch
-            # we have to trust NTP to be 0.2 s accurate
             while tt - math.floor(tt) < 0.2 or tt - math.floor(tt) > 0.3:
                 time.sleep(0.01)
+                #gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+                #tt = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
                 tt = time.time()
             if op.verbose:
                 print('Latching at ' + str(tt))
@@ -751,9 +761,9 @@ class Thor(object):
             # (at time math.ceil(tt))
             # then sets the time for the subsequent pps
             # (at time math.ceil(tt) + 1.0)
-            u.set_time_unknown_pps(uhd.time_spec(math.ceil(tt) + 1.0))
+            usrp.set_time_unknown_pps(uhd.time_spec(math.ceil(tt) + 1.0))
         else:
-            u.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
+            usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
@@ -761,7 +771,8 @@ class Thor(object):
         if st is not None:
             lt = st
         else:
-            now = pytz.utc.localize(datetime.utcnow())
+            gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+            now = pytz.utc.localize(gpstime)
             # launch on integer second by default for convenience (ceil + 1)
             lt = now.replace(microsecond=0) + timedelta(seconds=2)
         ltts = (lt - drf.util.epoch).total_seconds()
@@ -776,7 +787,7 @@ class Thor(object):
         ct_td = lt - drf.util.epoch
         ct_secs = ct_td.total_seconds() // 1.0
         ct_frac = ct_td.microseconds / 1000000.0
-        u.set_start_time(
+        usrp.set_start_time(
             uhd.time_spec(ct_secs) + uhd.time_spec(ct_frac)
         )
 

@@ -243,7 +243,7 @@ if __name__ == '__main__':
   
     for time, row in idx_data.iterrows():
         try:
-            dsp_delay = 9680    # Seems to be 9680 for just above zero range on loopback
+            dsp_delay = 9500    # Seems to be 9680 for just above zero range on loopback
             idx = np.array(int(row['idx'])) + dsp_delay
             res = analyze_prc(
                 data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,
