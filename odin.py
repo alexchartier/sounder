@@ -33,7 +33,6 @@ import digital_rf as drf
 import gr_digital_rf as gr_drf
 
 import freq_stepper
-from freq_stepper import set_dev_time
 import pdb
 
 epoch = datetime(1970, 1, 1, tzinfo=pytz.utc)
@@ -147,7 +146,7 @@ class Thor(object):
         samplerate=1e6,
         dev_args=['recv_buff_size=100000000', 'num_recv_frames=512'],
         stream_args=[], tune_args=[],
-        sync=True, sync_source='external',
+        sync=True, sync_source='gpsdo',  # sync_source='external',
         stop_on_dropped=False, realtime=False, test_settings=True,
         # receiver channel group (num: matching channels from mboards/subdevs)
         centerfreqs=[100e6],
@@ -173,8 +172,8 @@ class Thor(object):
         if op.test_settings:
             if op.verbose:
                 print('Initialization: testing device settings.')
-            u = self._usrp_setup()
-            del u
+            usrp = self._usrp_setup()
+            del usrp
 
             # finalize options (for settings that depend on USRP setup)
             self._finalize_options()
@@ -396,7 +395,7 @@ class Thor(object):
         op = self.op
         # create usrp source block
         op.otw_format = 'sc16'
-        u = uhd.usrp_source(
+        usrp = uhd.usrp_source(
             device_addr=','.join(chain(op.mboard_strs, op.dev_args)),
             stream_args=uhd.stream_args(
                 cpu_format=op.cpu_format,
@@ -409,20 +408,20 @@ class Thor(object):
         # set clock and time source if synced
         if op.sync:
             try:
-                u.set_clock_source(op.sync_source, uhd.ALL_MBOARDS)
-                u.set_time_source(op.sync_source, uhd.ALL_MBOARDS)
+                usrp.set_clock_source(op.sync_source, uhd.ALL_MBOARDS)
+                usrp.set_time_source(op.sync_source, uhd.ALL_MBOARDS)
             except RuntimeError:
                 errstr = (
                     "Setting sync_source to '{0}' failed. Must be one of {1}."
                     " If setting is valid, check that the source (REF, PPS) is"
                     " operational."
-                ).format(op.sync_source, u.get_clock_sources(0))
+                ).format(op.sync_source, usrp.get_clock_sources(0))
                 raise ValueError(errstr)
 
         # check for ref lock
         mbnums_with_ref = [
             mb_num for mb_num in range(op.nmboards)
-            if 'ref_locked' in u.get_mboard_sensor_names(mb_num)
+            if 'ref_locked' in usrp.get_mboard_sensor_names(mb_num)
         ]
         if mbnums_with_ref:
             if op.verbose:
@@ -430,7 +429,7 @@ class Thor(object):
                 sys.stdout.flush()
             timeout = 0
             while not all(
-                u.get_mboard_sensor('ref_locked', mb_num).to_bool()
+                usrp.get_mboard_sensor('ref_locked', mb_num).to_bool()
                 for mb_num in mbnums_with_ref
             ):
                 if op.verbose:
@@ -451,15 +450,15 @@ class Thor(object):
 
         # set mainboard options
         for mb_num in range(op.nmboards):
-            u.set_subdev_spec(op.subdevs[mb_num], mb_num)
+            usrp.set_subdev_spec(op.subdevs[mb_num], mb_num)
         # set global options
         # sample rate
-        u.set_samp_rate(float(op.samplerate))
+        usrp.set_samp_rate(float(op.samplerate))
         # read back actual value
-        samplerate = u.get_samp_rate()
+        samplerate = usrp.get_samp_rate()
         # calculate longdouble precision/rational sample rate
         # (integer division of clock rate)
-        cr = u.get_clock_rate()
+        cr = usrp.get_clock_rate()
         srdec = int(round(cr / samplerate))
         samplerate_ld = np.longdouble(cr) / srdec
         op.samplerate = samplerate_ld
@@ -468,20 +467,20 @@ class Thor(object):
         # set per-channel options
         # set command time so settings are synced
         COMMAND_DELAY = 0.2
-        cmd_time = u.get_time_now() + uhd.time_spec(COMMAND_DELAY)
-        u.set_command_time(cmd_time, uhd.ALL_MBOARDS)
+        cmd_time = usrp.get_time_now() + uhd.time_spec(COMMAND_DELAY)
+        usrp.set_command_time(cmd_time, uhd.ALL_MBOARDS)
         for ch_num in range(op.nrchs):
             # local oscillator sharing settings
             lo_source = op.lo_sources[ch_num]
             if lo_source:
                 try:
-                    u.set_lo_source(lo_source, uhd.ALL_LOS, ch_num)
+                    usrp.set_lo_source(lo_source, uhd.ALL_LOS, ch_num)
                 except RuntimeError:
                     errstr = (
                         "Unknown LO source option: '{0}'. Must be one of {1},"
                         " or it may not be possible to set the LO source on"
                         " this daughterboard."
-                    ).format(lo_source, u.get_lo_sources(uhd.ALL_LOS, ch_num))
+                    ).format(lo_source, usrp.get_lo_sources(uhd.ALL_LOS, ch_num))
                     raise ValueError(errstr)
             lo_export = op.lo_exports[ch_num]
             if lo_export is not None:
@@ -491,9 +490,9 @@ class Thor(object):
                         ' LO export.'
                     ).format(ch_num)
                     raise ValueError(errstr)
-                u.set_lo_export_enabled(lo_export, uhd.ALL_LOS, ch_num)
+                usrp.set_lo_export_enabled(lo_export, uhd.ALL_LOS, ch_num)
             # center frequency and tuning offset
-            tune_res = u.set_center_freq(
+            tune_res = usrp.set_center_freq(
                 uhd.tune_request(
                     op.centerfreqs[ch_num], op.lo_offsets[ch_num],
                     args=uhd.device_addr(','.join(op.tune_args)),
@@ -508,53 +507,53 @@ class Thor(object):
             # dc offset
             dc_offset = op.dc_offsets[ch_num]
             if dc_offset is True:
-                u.set_auto_dc_offset(True, ch_num)
+                usrp.set_auto_dc_offset(True, ch_num)
             elif dc_offset is False:
-                u.set_auto_dc_offset(False, ch_num)
+                usrp.set_auto_dc_offset(False, ch_num)
             elif dc_offset is not None:
-                u.set_auto_dc_offset(False, ch_num)
-                u.set_dc_offset(dc_offset, ch_num)
+                usrp.set_auto_dc_offset(False, ch_num)
+                usrp.set_dc_offset(dc_offset, ch_num)
             # iq balance
             iq_balance = op.iq_balances[ch_num]
             if iq_balance is True:
-                u.set_auto_iq_balance(True, ch_num)
+                usrp.set_auto_iq_balance(True, ch_num)
             elif iq_balance is False:
-                u.set_auto_iq_balance(False, ch_num)
+                usrp.set_auto_iq_balance(False, ch_num)
             elif iq_balance is not None:
-                u.set_auto_iq_balance(False, ch_num)
-                u.set_iq_balance(iq_balance, ch_num)
+                usrp.set_auto_iq_balance(False, ch_num)
+                usrp.set_iq_balance(iq_balance, ch_num)
             # gain
-            u.set_gain(op.gains[ch_num], ch_num)
+            usrp.set_gain(op.gains[ch_num], ch_num)
             # bandwidth
             bw = op.bandwidths[ch_num]
             if bw:
-                u.set_bandwidth(bw, ch_num)
+                usrp.set_bandwidth(bw, ch_num)
             # antenna
             ant = op.antennas[ch_num]
             if ant:
                 try:
-                    u.set_antenna(ant, ch_num)
+                    usrp.set_antenna(ant, ch_num)
                 except RuntimeError:
                     errstr = (
                         "Unknown RX antenna option: '{0}'. Must be one of {1}."
-                    ).format(ant, u.get_antennas(ch_num))
+                    ).format(ant, usrp.get_antennas(ch_num))
                     raise ValueError(errstr)
 
         # commands are done, clear time
-        u.clear_command_time(uhd.ALL_MBOARDS)
+        usrp.clear_command_time(uhd.ALL_MBOARDS)
         time.sleep(COMMAND_DELAY)
 
         # read back actual channel settings
         for ch_num in range(op.nrchs):
             if op.lo_sources[ch_num]:
-                op.lo_sources[ch_num] = u.get_lo_source(uhd.ALL_LOS, ch_num)
+                op.lo_sources[ch_num] = usrp.get_lo_source(uhd.ALL_LOS, ch_num)
             if op.lo_exports[ch_num] is not None:
-                op.lo_exports[ch_num] = u.get_lo_export_enabled(
+                op.lo_exports[ch_num] = usrp.get_lo_export_enabled(
                     uhd.ALL_LOS, ch_num,
                 )
-            op.gains[ch_num] = u.get_gain(ch_num)
-            op.bandwidths[ch_num] = u.get_bandwidth(chan=ch_num)
-            op.antennas[ch_num] = u.get_antenna(chan=ch_num)
+            op.gains[ch_num] = usrp.get_gain(ch_num)
+            op.bandwidths[ch_num] = usrp.get_bandwidth(chan=ch_num)
+            op.antennas[ch_num] = usrp.get_antenna(chan=ch_num)
 
         if op.verbose:
             print('Using the following devices:')
@@ -572,7 +571,7 @@ class Thor(object):
                 header = '---- receiver channel {0} '.format(ch_num)
                 header += '-' * (78 - len(header))
                 print(header)
-                usrpinfo = dict(u.get_usrp_info(chan=ch_num))
+                usrpinfo = dict(usrp.get_usrp_info(chan=ch_num))
                 info = {}
                 info['mb_id'] = usrpinfo['mboard_id']
                 mba = op.mboards_bychan[ch_num]
@@ -592,7 +591,7 @@ class Thor(object):
                 print(chinfo.format(**info))
                 print('-' * 78)
 
-        return u
+        return usrp
 
     def _finalize_options(self):
         op = self.op
@@ -727,6 +726,7 @@ class Thor(object):
         while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
             print("waiting for gps lock...")
             time.sleep(5)
+        print("...GPS locked!")
         assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
 
         # finalize options (for settings that depend on USRP setup)
@@ -771,10 +771,20 @@ class Thor(object):
         if st is not None:
             lt = st
         else:
-            gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
-            now = pytz.utc.localize(gpstime)
+            # Set the USRP time to GPS, then get the USRP time for launch purposes
+            freq_stepper.set_dev_time(usrp, 'GPS')
+            usrptime_secs = usrp.get_time_now().get_real_secs()
+
+            # launch on integer second 
+            lt = drf.util.epoch + timedelta(seconds=usrptime_secs + 2)
+            
+            #gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+            #now = pytz.utc.localize(gpstime)
+
+            # now = pytz.utc.localize(datetime.utcnow()) 
             # launch on integer second by default for convenience (ceil + 1)
-            lt = now.replace(microsecond=0) + timedelta(seconds=2)
+            # lt = now.replace(microsecond=0) + timedelta(seconds=2)
+
         ltts = (lt - drf.util.epoch).total_seconds()
         # adjust launch time forward so it falls on an exact sample since epoch
         lt_rsamples = np.ceil(ltts * op.samplerate)
@@ -933,12 +943,12 @@ class Thor(object):
                     # receiver metadata for USRP
                     receiver=dict(
                         description='UHD USRP source using GNU Radio',
-                        info=dict(u.get_usrp_info(chan=kr)),
+                        info=dict(usrp.get_usrp_info(chan=kr)),
                         antenna=op.antennas[kr],
                         bandwidth=op.bandwidths[kr],
                         center_freq=op.centerfreqs[kr],
-                        clock_rate=u.get_clock_rate(mboard=mbnum),
-                        clock_source=u.get_clock_source(mboard=mbnum),
+                        clock_rate=usrp.get_clock_rate(mboard=mbnum),
+                        clock_source=usrp.get_clock_source(mboard=mbnum),
                         dc_offset=op.dc_offsets[kr],
                         gain=op.gains[kr],
                         id=op.mboards_bychan[kr],
@@ -947,10 +957,10 @@ class Thor(object):
                         lo_offset=op.lo_offsets[kr],
                         lo_source=op.lo_sources[kr],
                         otw_format=op.otw_format,
-                        samp_rate=u.get_samp_rate(),
+                        samp_rate=usrp.get_samp_rate(),
                         stream_args=','.join(op.stream_args),
                         subdev=op.subdevs_bychan[kr],
-                        time_source=u.get_time_source(mboard=mbnum),
+                        time_source=usrp.get_time_source(mboard=mbnum),
                     ),
                     processing=dict(
                         channelizer_filter_taps=op.channelizer_filter_taps[ko],
@@ -968,7 +978,7 @@ class Thor(object):
                 debug=op.verbose,
             )
 
-            connections = [(u, kr)]
+            connections = [(usrp, kr)]
             if resampler is not None:
                 connections.append((resampler, 0))
                 connections.append((resampler_skiphead, 0))
@@ -996,7 +1006,7 @@ class Thor(object):
         time.sleep(5)
         # Step through freqs
         freqstep_log_fname = os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log'
-        freq_stepper.step(u, op, freq_list_fname=op.freq_list_fname, out_fname=freqstep_log_fname)
+        freq_stepper.step(usrp, op, freq_list_fname=op.freq_list_fname, out_fname=freqstep_log_fname)
 
         # wait until flowgraph stops
         try:
@@ -1012,13 +1022,13 @@ class Thor(object):
                     ct_td = et - drf.util.epoch
                     ct_secs = ct_td.total_seconds() // 1.0
                     ct_frac = ct_td.microseconds / 1000000.0
-                    u.set_command_time(
+                    usrp.set_command_time(
                         (uhd.time_spec(ct_secs) + uhd.time_spec(ct_frac)),
                         uhd.ALL_MBOARDS,
                     )
                     stop_enum = uhd.stream_cmd.STREAM_MODE_STOP_CONTINUOUS
-                    u.issue_stream_cmd(uhd.stream_cmd(stop_enum))
-                    u.clear_command_time(uhd.ALL_MBOARDS)
+                    usrp.issue_stream_cmd(uhd.stream_cmd(stop_enum))
+                    usrp.clear_command_time(uhd.ALL_MBOARDS)
                     # sleep until after end time
                     time.sleep(2)
         except KeyboardInterrupt:

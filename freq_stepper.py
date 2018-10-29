@@ -130,11 +130,15 @@ def step(usrp, op,
 def set_dev_time(usrp, timetype):
     """ Set the USRP's time based on GPS or NTP"""
     if timetype == 'GPS':
-        while int(usrp.get_time_last_pps().get_real_secs()) != usrp.get_mboard_sensor("gps_time").to_int():
-            print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
-            usrp.set_time_now(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2), uhd.ALL_MBOARDS)
+        usrptime_secs = int(usrp.get_time_now().get_real_secs())
+        gpstime_secs = usrp.get_mboard_sensor("gps_time").to_int() 
+        while usrptime_secs != gpstime_secs:
+            usrp.set_time_now(uhd.time_spec_t(gpstime_secs), uhd.ALL_MBOARDS)
+            print('USRP time %i, GPS time %i' % (usrptime_secs, gpstime_secs))
             time.sleep(1)
-            print('USRP time %i, GPS time %i' % (int(usrp.get_time_last_pps().get_real_secs()), usrp.get_mboard_sensor("gps_time").to_int()))
+            usrptime_secs = int(usrp.get_time_now().get_real_secs()) + 1
+            gpstime_secs = usrp.get_mboard_sensor("gps_time").to_int() 
+        print('USRP time %i, GPS time %i' % (usrptime_secs, gpstime_secs))
     elif timetype == 'NTP':
         tt = time.time()
         usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
