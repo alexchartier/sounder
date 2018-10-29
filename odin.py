@@ -146,7 +146,7 @@ class Thor(object):
         samplerate=1e6,
         dev_args=['recv_buff_size=100000000', 'num_recv_frames=512'],
         stream_args=[], tune_args=[],
-        sync=True, sync_source='external',
+        sync=True, sync_source='gpsdo',  # sync_source='external',
         stop_on_dropped=False, realtime=False, test_settings=True,
         # receiver channel group (num: matching channels from mboards/subdevs)
         centerfreqs=[100e6],
