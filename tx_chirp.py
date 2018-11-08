@@ -209,7 +209,7 @@ class Tx(object):
         gains=[0], bandwidths=[0], antennas=[''],
         samplerate=1e6,
         dev_args=[], stream_args=[], tune_args=[],
-        sync=True, sync_source='external',
+        sync=True, sync_source='gpsdo',
         realtime=False, verbose=True, test_settings=True,
         freq_list_fname=None,
     ):
