@@ -513,7 +513,7 @@ class Tx(object):
 
         return usrp
 
-    def run(self, starttime=None, endtime=None, duration=None, period=10):
+    def run(self):
         op = self.op
 
         # window in seconds that we allow for setup time so that we don't
@@ -527,57 +527,7 @@ class Tx(object):
             except OSError:
                 # no timedatectl command, ignore
                 pass
-
-        # parse time arguments
-        st = drf.util.parse_identifier_to_time(starttime)
-        if st is not None:
-            # find next suitable start time by cycle repeat period
-            now = datetime.utcnow()
-            now = now.replace(tzinfo=pytz.utc)
-            soon = now + timedelta(seconds=SETUP_TIME)
-            diff = max(soon - st, timedelta(0)).total_seconds()
-            periods_until_next = (diff - 1) // period + 1
-            st = st + timedelta(seconds=periods_until_next * period)
-
-            if op.verbose:
-                ststr = st.strftime('%a %b %d %H:%M:%S %Y')
-                stts = (st - drf.util.epoch).total_seconds()
-                print('Start time: {0} ({1})'.format(ststr, stts))
-
-        et = drf.util.parse_identifier_to_time(endtime, ref_datetime=st)
-        if et is not None:
-            if op.verbose:
-                etstr = et.strftime('%a %b %d %H:%M:%S %Y')
-                etts = (et - drf.util.epoch).total_seconds()
-                print('End time: {0} ({1})'.format(etstr, etts))
-
-            if ((et < (pytz.utc.localize(datetime.utcnow())
-                       + timedelta(seconds=SETUP_TIME)))
-               or (st is not None and et <= st)):
-                raise ValueError('End time is before launch time!')
-
-        if op.realtime:
-            r = gr.enable_realtime_scheduling()
-
-            if op.verbose:
-                if r == gr.RT_OK:
-                    print('Realtime scheduling enabled')
-                else:
-                    print('Note: failed to enable realtime scheduling')
-
-        # wait for the start time if it is not past
-        while (st is not None) and (
-            (st - pytz.utc.localize(datetime.utcnow())) >
-                timedelta(seconds=SETUP_TIME)
-        ):
-            ttl = int((
-                st - pytz.utc.localize(datetime.utcnow())
-            ).total_seconds())
-            if (ttl % 10) == 0:
-                print('Standby {0} s remaining...'.format(ttl))
-                sys.stdout.flush()
-            time.sleep(1)
-
+        
         # get UHD USRP source
         usrp = self._usrp_setup()
 
@@ -587,21 +537,19 @@ class Tx(object):
             time.sleep(5)
         assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
 
-        # Set device time
-        if op.sync:  # using the onboard GPS
-            freq_stepper.set_dev_time(usrp, 'GPS')
-        else:  # using NTP
-            freq_stepper.set_dev_time(usrp, 'NTP')
+        # Set device time using the onboard GPS
+        freq_stepper.set_dev_time(usrp, 'GPS')
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
         #  there is time to set up flowgraph)
-        if st is not None:
-            lt = st
-        else:
-            now = pytz.utc.localize(datetime.utcnow())
-            # launch on integer second by default for convenience  (ceil + 1)
-            lt = now.replace(microsecond=0) + timedelta(seconds=2)
+    
+        gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+        # now = pytz.utc.localize(datetime.utcnow())
+        now = pytz.utc.localize(gpstime)
+        # launch on integer second by default for convenience  (ceil + 1)
+        lt = now.replace(microsecond=0) + timedelta(seconds=2)
+
         ltts = (lt - drf.util.epoch).total_seconds()
         # adjust launch time forward so it falls on an exact sample since epoch
         lt_samples = np.ceil(ltts * op.samplerate)
@@ -610,10 +558,12 @@ class Tx(object):
         if op.verbose:
             ltstr = lt.strftime('%a %b %d %H:%M:%S.%f %Y')
             print('Launch time: {0} ({1})'.format(ltstr, repr(ltts)))
+
         # command launch time
         ct_td = lt - drf.util.epoch
         ct_secs = ct_td.total_seconds() // 1.0
         ct_frac = ct_td.microseconds / 1000000.0
+
         usrp.set_start_time(
             uhd.time_spec(ct_secs) + uhd.time_spec(ct_frac)
         )
@@ -621,7 +571,7 @@ class Tx(object):
         # populate flowgraph one channel at a time
         fg = gr.top_block()
         for k in range(op.nchs):
-            mult_k = op.amplitudes[k]*np.exp(1j*op.phases[k])
+            mult_k = op.amplitudes[k] * np.exp(1j * op.phases[k])
             if op.waveform is not None:
                 waveform_k = mult_k*op.waveform
                 src_k = blocks.vector_source_c(
@@ -636,39 +586,23 @@ class Tx(object):
         # start the flowgraph once we are near the launch time
         # (start too soon and device buffers might not yet be flushed)
         # (start too late and device might not be able to start in time)
+
+        """
         while ((lt - pytz.utc.localize(datetime.utcnow()))
                 > timedelta(seconds=1.2)):
+        """
+
+        while ((lt - pytz.utc.localize(datetime.utcfromtimestamp(
+            usrp.get_mboard_sensor("gps_time")))) > timedelta(seconds=1.2)):
             time.sleep(0.1)
         fg.start()
 
         # Step the USRP through a list of frequencies
         freq_stepper.step(usrp, op, freq_list_fname=op.freq_list_fname) 
 
-        # wait until end time or until flowgraph stops
-        if et is None and duration is not None:
-            et = lt + timedelta(seconds=duration)
+        # wait until flowgraph stops
         try:
-            if et is None:
-                fg.wait()
-            else:
-                # sleep until end time nears
-                while(pytz.utc.localize(datetime.utcnow()) <
-                        et - timedelta(seconds=2)):
-                    time.sleep(1)
-                else:
-                    # issue stream stop command at end time
-                    ct_td = et - drf.util.epoch
-                    ct_secs = ct_td.total_seconds() // 1.0
-                    ct_frac = ct_td.microseconds / 1000000.0
-                    usrp.set_command_time(
-                        (uhd.time_spec(ct_secs) + uhd.time_spec(ct_frac)),
-                        uhd.ALL_MBOARDS,
-                    )
-                    stop_enum = uhd.stream_cmd.STREAM_MODE_STOP_CONTINUOUS
-                    usrp.issue_stream_cmd(uhd.stream_cmd(stop_enum))
-                    usrp.clear_command_time(uhd.ALL_MBOARDS)
-                    # sleep until after end time
-                    time.sleep(2)
+            fg.wait()
         except KeyboardInterrupt:
             # catch keyboard interrupt and simply exit
             pass
@@ -864,25 +798,9 @@ if __name__ == '__main__':
         '--nosync', dest='sync', action='store_false',
         help='''No syncing with external clock. (default: False)''',
     )
-    txgroup.add_argument(
-        '--realtime', dest='realtime', action='store_true',
-        help='''Enable realtime scheduling if possible.
-                (default: %(default)s)''',
-    )
 
     timegroup = parser.add_argument_group(title='time')
-    timegroup.add_argument(
-        '-s', '--starttime', dest='starttime',
-        help='''Start time of the experiment as datetime (if in ISO8601 format:
-                2016-01-01T15:24:00Z) or Unix time (if float/int).
-                (default: start ASAP)''',
-    )
-    timegroup.add_argument(
-        '-e', '--endtime', dest='endtime',
-        help='''End time of the experiment as datetime (if in ISO8601 format:
-                2016-01-01T16:24:00Z) or Unix time (if float/int).
-                (default: wait for Ctrl-C)''',
-    )
+    
     timegroup.add_argument(
         '-f', '--freq_list', dest='freq_list_fname',
         help='''Text file with list of tune times in format:
@@ -892,16 +810,6 @@ if __name__ == '__main__':
                     30:  9
                     45:  12
                 (default: None)''',
-    )
-    timegroup.add_argument(
-        '-l', '--duration', dest='duration', type=evalint,
-        help='''Duration of experiment in seconds. When endtime is not given,
-                end this long after start time. (default: wait for Ctrl-C)''',
-    )
-    timegroup.add_argument(
-        '-p', '--cycle-length', dest='period', type=int,
-        help='''Repeat time of experiment cycle. Align to start of next cycle
-                if start time has passed. (default: 10)''',
     )
 
     op = parser.parse_args()
@@ -941,18 +849,10 @@ if __name__ == '__main__':
             '{0}={1}'.format(k, v) for k, v in tune_args_dict.iteritems()
         ]
 
-    # ignore test_settings option if no starttime is set (starting right now)
-    if op.starttime is None:
-        op.test_settings = False
-
     options = {k: v for k, v in op._get_kwargs() if v is not None}
     fpath = options.pop('file')
     iq_dir = options.pop('iq_dir', None)
     tone = options.pop('tone', False)
-    runopts = {
-        k: options.pop(k) for k in list(options.keys())
-        if k in ('starttime', 'endtime', 'duration', 'period')
-    }
 
     # read waveform
     if op.tone:
@@ -968,4 +868,4 @@ if __name__ == '__main__':
             options['waveform'] = np.fromfile(op.file, dtype=np.complex64)
 
     tx = Tx(**options)
-    tx.run(**runopts)
+    tx.run()
