@@ -664,60 +664,10 @@ class Thor(object):
                 # no timedatectl command, ignore
                 pass
 
-        # parse time arguments
-        st = drf.util.parse_identifier_to_time(starttime)
-        if st is not None:
-            # find next suitable start time by cycle repeat period
-            now = datetime.utcnow()
-            now = now.replace(tzinfo=pytz.utc)
-            soon = now + timedelta(seconds=SETUP_TIME)
-            diff = max(soon - st, timedelta(0)).total_seconds()
-            periods_until_next = (diff - 1) // period + 1
-            st = st + timedelta(seconds=periods_until_next * period)
-
-            if op.verbose:
-                ststr = st.strftime('%a %b %d %H:%M:%S %Y')
-                stts = (st - drf.util.epoch).total_seconds()
-                print('Start time: {0} ({1})'.format(ststr, stts))
-
-        et = drf.util.parse_identifier_to_time(endtime, ref_datetime=st)
-        if et is not None:
-            if op.verbose:
-                etstr = et.strftime('%a %b %d %H:%M:%S %Y')
-                etts = (et - drf.util.epoch).total_seconds()
-                print('End time: {0} ({1})'.format(etstr, etts))
-
-            if ((et < (pytz.utc.localize(datetime.utcnow())
-                       + timedelta(seconds=SETUP_TIME)))
-               or (st is not None and et <= st)):
-                raise ValueError('End time is before launch time!')
-
-        if op.realtime:
-            r = gr.enable_realtime_scheduling()
-
-            if op.verbose:
-                if r == gr.RT_OK:
-                    print('Realtime scheduling enabled')
-                else:
-                    print('Note: failed to enable realtime scheduling')
-
         # create data directory so ringbuffer code can be started while waiting
         # to launch
         if not os.path.isdir(op.datadir):
             os.makedirs(op.datadir)
-
-        # wait for the start time if it is not past
-        while (st is not None) and (
-            (st - pytz.utc.localize(datetime.utcnow())) >
-                timedelta(seconds=SETUP_TIME)
-        ):
-            ttl = int((
-                st - pytz.utc.localize(datetime.utcnow())
-            ).total_seconds())
-            if (ttl % 10) == 0:
-                print('Standby {0} s remaining...'.format(ttl))
-                sys.stdout.flush()
-            time.sleep(1)
 
         # get UHD USRP source
         usrp = self._usrp_setup()
@@ -744,59 +694,30 @@ class Thor(object):
         time.sleep(0.2)
 
         # set device time
-        #print('trying to get started using GPS')
-        #gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
-        #tt = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
-        tt = time.time()
-        if op.sync:
-            # wait until time 0.2 to 0.5 past full second, then latch
-            while tt - math.floor(tt) < 0.2 or tt - math.floor(tt) > 0.3:
-                time.sleep(0.01)
-                #gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
-                #tt = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
-                tt = time.time()
-            if op.verbose:
-                print('Latching at ' + str(tt))
-            # waits for the next pps to happen
-            # (at time math.ceil(tt))
-            # then sets the time for the subsequent pps
-            # (at time math.ceil(tt) + 1.0)
-            usrp.set_time_unknown_pps(uhd.time_spec(math.ceil(tt) + 1.0))
-        else:
-            usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
+        freq_stepper.set_dev_time(usrp, 'GPS')
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
         #  there is time to set up flowgraph)
-        if st is not None:
-            lt = st
-        else:
-            # Set the USRP time to GPS, then get the USRP time for launch purposes
-            freq_stepper.set_dev_time(usrp, 'GPS')
-            usrptime_secs = usrp.get_time_now().get_real_secs()
-
-            # launch on integer second 
-            lt = drf.util.epoch + timedelta(seconds=usrptime_secs + 2)
-            
-            #gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
-            #now = pytz.utc.localize(gpstime)
-
-            # now = pytz.utc.localize(datetime.utcnow()) 
-            # launch on integer second by default for convenience (ceil + 1)
-            # lt = now.replace(microsecond=0) + timedelta(seconds=2)
+        gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+        now = pytz.utc.localize(gpstime)
+        # launch on integer second by default for convenience  (ceil + 1)
+        lt = now.replace(microsecond=0) + timedelta(seconds=2)
 
         ltts = (lt - drf.util.epoch).total_seconds()
         # adjust launch time forward so it falls on an exact sample since epoch
-        lt_rsamples = np.ceil(ltts * op.samplerate)
-        ltts = lt_rsamples / op.samplerate
-        lt = drf.util.sample_to_datetime(lt_rsamples, op.samplerate)
+        lt_samples = np.ceil(ltts * op.samplerate)
+        ltts = lt_samples / op.samplerate
+        lt = drf.util.sample_to_datetime(lt_samples, op.samplerate)
         if op.verbose:
-            ltstr = lt.strftime('%a %b %d %H:%M:%S.%f %Y')
-            print('Launch time: {0} ({1})'.format(ltstr, repr(ltts)))
+             ltstr = lt.strftime('%a %b %d %H:%M:%S.%f %Y')
+             print('Launch time: {0} ({1})'.format(ltstr, repr(ltts)))
+
         # command launch time
         ct_td = lt - drf.util.epoch
         ct_secs = ct_td.total_seconds() // 1.0
         ct_frac = ct_td.microseconds / 1000000.0
+
         usrp.set_start_time(
             uhd.time_spec(ct_secs) + uhd.time_spec(ct_frac)
         )
