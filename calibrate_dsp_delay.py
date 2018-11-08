@@ -7,15 +7,14 @@
 #
 # The full license is in the LICENSE file, distributed with this software.
 # ----------------------------------------------------------------------------
-"""Script for analyzing pseudorandom-coded waveforms.
-
-See the following paper for a description and application of the technique:
-
-Vierinen, J., Chau, J. L., Pfeffer, N., Clahsen, M., and Stober, G.,
-Coded continuous wave meteor radar, Atmos. Meas. Tech., 9, 829-839,
-doi:10.5194/amt-9-829-2016, 2016.
-
 """
+DSP introduces a delay to the signal, resulting in loop-back or direct path
+receipts appearing at non-zero range. The following code identifies the delay
+in range to allow for calibration
+Author: A.T. Chartier (adapted from prc_analyze.py)
+"""
+
+
 import datetime
 import glob
 import itertools
@@ -243,7 +242,7 @@ if __name__ == '__main__':
   
     for time, row in idx_data.iterrows():
         try:
-            dsp_delay = 1660# 7825    # 7968
+            dsp_delay = 7960    # 7968
             idx = np.array(int(row['idx'])) + dsp_delay
             res = analyze_prc(
                 data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,

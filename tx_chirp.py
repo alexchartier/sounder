@@ -222,8 +222,8 @@ class Tx(object):
             # test usrp device settings, release device when done
             if op.verbose:
                 print('Initialization: testing device settings.')
-            u = self._usrp_setup()
-            del u
+            usrp = self._usrp_setup()
+            del usrp
 
     @staticmethod
     def _parse_options(**kwargs):
@@ -394,9 +394,16 @@ class Tx(object):
 
         # set per-channel options
         # set command time so settings are synced
+        gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+        gpstime_secs = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
         COMMAND_DELAY = 0.2
-        cmd_time = usrp.get_time_now() + uhd.time_spec(COMMAND_DELAY)
-        usrp.set_command_time(cmd_time, uhd.ALL_MBOARDS)
+        cmd_time_secs = gpstime_secs + COMMAND_DELAY
+
+        usrp.set_command_time(
+            uhd.time_spec(float(cmd_time_secs)),
+            uhd.ALL_MBOARDS,
+        )
+
         for ch_num in range(op.nchs):
             # local oscillator sharing settings
             lo_source = op.lo_sources[ch_num]
@@ -418,7 +425,7 @@ class Tx(object):
                         ' LO export.'
                     ).format(ch_num)
                     raise ValueError(errstr)
-                u.set_lo_export_enabled(lo_export, uhd.ALL_LOS, ch_num)
+                usrp.set_lo_export_enabled(lo_export, uhd.ALL_LOS, ch_num)
             # center frequency and tuning offset
             tune_res = usrp.set_center_freq(
                 uhd.tune_request(
@@ -574,7 +581,7 @@ class Tx(object):
         for k in range(op.nchs):
             mult_k = op.amplitudes[k] * np.exp(1j * op.phases[k])
             if op.waveform is not None:
-                waveform_k = mult_k*op.waveform
+                waveform_k = mult_k * op.waveform
                 src_k = blocks.vector_source_c(
                     waveform_k.tolist(), repeat=True,
                 )

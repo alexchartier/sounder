@@ -466,9 +466,15 @@ class Thor(object):
 
         # set per-channel options
         # set command time so settings are synced
-        COMMAND_DELAY = 0.2
-        cmd_time = usrp.get_time_now() + uhd.time_spec(COMMAND_DELAY)
-        usrp.set_command_time(cmd_time, uhd.ALL_MBOARDS)
+        gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
+        gpstime_secs = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
+        COMMAND_DELAY = 0.2 
+        cmd_time_secs = gpstime_secs + COMMAND_DELAY
+
+        usrp.set_command_time(
+            uhd.time_spec(float(cmd_time_secs)),
+            uhd.ALL_MBOARDS,
+        )
         for ch_num in range(op.nrchs):
             # local oscillator sharing settings
             lo_source = op.lo_sources[ch_num]
