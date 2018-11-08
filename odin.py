@@ -466,6 +466,7 @@ class Thor(object):
 
         # set per-channel options
         # set command time so settings are synced
+        freq_stepper.set_dev_time(usrp, 'GPS')
         gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
         gpstime_secs = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
         COMMAND_DELAY = 0.2 
@@ -698,9 +699,6 @@ class Thor(object):
         time.sleep(0.5)
         usrp.stop()
         time.sleep(0.2)
-
-        # set device time
-        freq_stepper.set_dev_time(usrp, 'GPS')
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and

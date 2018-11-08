@@ -243,7 +243,7 @@ if __name__ == '__main__':
   
     for time, row in idx_data.iterrows():
         try:
-            dsp_delay = 1660# 7825    # 7968
+            dsp_delay = 1775  #1780    # 7968
             idx = np.array(int(row['idx'])) + dsp_delay
             res = analyze_prc(
                 data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,
