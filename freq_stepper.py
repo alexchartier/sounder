@@ -127,25 +127,28 @@ def step(usrp, op,
         time.sleep(sleeptime)
 
 
-def set_dev_time(usrp, timetype):
-    """ Set the USRP's time based on GPS or NTP"""
-    if timetype == 'GPS':
-        usrptime_secs = int(usrp.get_time_now().get_real_secs())
-        gpstime_secs = usrp.get_mboard_sensor("gps_time").to_int() 
-        while usrptime_secs != gpstime_secs:
-            usrp.set_time_now(uhd.time_spec_t(gpstime_secs), uhd.ALL_MBOARDS)
-            print('USRP time %i, GPS time %i' % (usrptime_secs, gpstime_secs))
-            time.sleep(1)
-            usrptime_secs = int(usrp.get_time_now().get_real_secs()) + 1
-            gpstime_secs = usrp.get_mboard_sensor("gps_time").to_int() 
-        print('USRP time %i, GPS time %i' % (usrptime_secs, gpstime_secs))
-    elif timetype == 'NTP':
-        tt = time.time()
-        usrp.set_time_now(uhd.time_spec(tt), uhd.ALL_MBOARDS)
-        # wait for time registers to be in known state
-        time.sleep(1)
+def set_dev_time(usrp):
+    """ Set the USRP's time based on GPS """
+    # Check for GPS lock
+    while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
+        print("waiting for gps lock...")
+        time.sleep(5)
+    print("...GPS locked!")
+    assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
 
-        print('Time set using %s' % timetype)
+    usrptime_secs = int(usrp.get_time_now().get_real_secs())
+    gpstime_secs = usrp.get_mboard_sensor("gps_time").to_int() 
+    while usrptime_secs != gpstime_secs:
+        usrp.set_time_now(uhd.time_spec_t(gpstime_secs), uhd.ALL_MBOARDS)
+        print('USRP time %i, GPS time %i' % (usrptime_secs, gpstime_secs))
+        time.sleep(1)
+        usrptime_secs = int(usrp.get_time_now().get_real_secs()) + 1
+        gpstime_secs = usrp.get_mboard_sensor("gps_time").to_int() 
+    print('USRP time %i, GPS time %i' % (usrptime_secs, gpstime_secs))
+
+    # wait for time registers to be in known state
+    time.sleep(1)
+    print('Time set using GPS')
 
 
 def get_freq_list(freq_list_fname):

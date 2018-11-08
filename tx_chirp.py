@@ -393,7 +393,7 @@ class Tx(object):
         op.samplerate_den = sr_rat.denominator
 
         # Set device time using the onboard GPS
-        freq_stepper.set_dev_time(usrp, 'GPS')
+        freq_stepper.set_dev_time(usrp)
 
         # set per-channel options
         # set command time so settings are synced
@@ -540,13 +540,7 @@ class Tx(object):
         
         # get UHD USRP source
         usrp = self._usrp_setup()
-
-        # Check for GPS lock
-        while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
-            print("waiting for gps lock...")
-            time.sleep(5)
-        print('...GPS locked!')
-        assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
+        freq_stepper.set_dev_time(usrp)
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and

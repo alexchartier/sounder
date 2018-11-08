@@ -466,7 +466,7 @@ class Thor(object):
 
         # set per-channel options
         # set command time so settings are synced
-        freq_stepper.set_dev_time(usrp, 'GPS')
+        freq_stepper.set_dev_time(usrp)
         gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
         gpstime_secs = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
         COMMAND_DELAY = 0.2 
@@ -679,16 +679,10 @@ class Thor(object):
         # get UHD USRP source
         usrp = self._usrp_setup()
 
-        # Check for GPS lock
-        while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
-            print("waiting for gps lock...")
-            time.sleep(5)
-        print("...GPS locked!")
-        assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
-
         # finalize options (for settings that depend on USRP setup)
         self._finalize_options()
 
+        freq_stepper.set_dev_time(usrp)
         # force creation of the RX streamer ahead of time with a start/stop
         # (after setting time/clock sources, before setting the
         # device time)
