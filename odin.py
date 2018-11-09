@@ -146,7 +146,6 @@ class Thor(object):
         samplerate=1e6,
         dev_args=['recv_buff_size=100000000', 'num_recv_frames=512'],
         stream_args=[], tune_args=[],
-        sync=True, sync_source='gpsdo',  # sync_source='external',
         stop_on_dropped=False, realtime=False, test_settings=True,
         # receiver channel group (num: matching channels from mboards/subdevs)
         centerfreqs=[100e6],
@@ -167,16 +166,6 @@ class Thor(object):
         del options['self']
         op = self._parse_options(**options)
         self.op = op
-
-        # test usrp device settings, release device when done
-        if op.test_settings:
-            if op.verbose:
-                print('Initialization: testing device settings.')
-            usrp = self._usrp_setup()
-            del usrp
-
-            # finalize options (for settings that depend on USRP setup)
-            self._finalize_options()
 
     @staticmethod
     def _parse_options(**kwargs):
@@ -405,18 +394,18 @@ class Thor(object):
             ),
         )
 
-        # set clock and time source if synced
-        if op.sync:
-            try:
-                usrp.set_clock_source(op.sync_source, uhd.ALL_MBOARDS)
-                usrp.set_time_source(op.sync_source, uhd.ALL_MBOARDS)
-            except RuntimeError:
-                errstr = (
-                    "Setting sync_source to '{0}' failed. Must be one of {1}."
-                    " If setting is valid, check that the source (REF, PPS) is"
-                    " operational."
-                ).format(op.sync_source, usrp.get_clock_sources(0))
-                raise ValueError(errstr)
+        # set clock and time source 
+        try:
+            sync_source = 'gpsdo'
+            usrp.set_clock_source(sync_source, uhd.ALL_MBOARDS)
+            usrp.set_time_source(sync_source, uhd.ALL_MBOARDS)
+        except RuntimeError:
+            errstr = (
+                "Setting sync_source to '{0}' failed. Must be one of {1}."
+                " If setting is valid, check that the source (REF, PPS) is"
+                " operational."
+            ).format(sync_source, usrp.get_clock_sources(0))
+            raise ValueError(errstr)
 
         # check for ref lock
         mbnums_with_ref = [
@@ -466,7 +455,7 @@ class Thor(object):
 
         # set per-channel options
         # set command time so settings are synced
-        freq_stepper.set_dev_time(usrp)
+        freq_stepper.derek_set_dev_time(usrp)
         gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
         gpstime_secs = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
         COMMAND_DELAY = 0.2 
@@ -682,7 +671,6 @@ class Thor(object):
         # finalize options (for settings that depend on USRP setup)
         self._finalize_options()
 
-        freq_stepper.set_dev_time(usrp)
         # force creation of the RX streamer ahead of time with a start/stop
         # (after setting time/clock sources, before setting the
         # device time)
@@ -697,28 +685,11 @@ class Thor(object):
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
         #  there is time to set up flowgraph)
-        gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
-        now = pytz.utc.localize(gpstime)
-        # launch on integer second by default for convenience  (ceil + 1)
-        lt = now.replace(microsecond=0) + timedelta(seconds=2)
-
-        ltts = (lt - drf.util.epoch).total_seconds()
-        # adjust launch time forward so it falls on an exact sample since epoch
-        lt_samples = np.ceil(ltts * op.samplerate)
-        ltts = lt_samples / op.samplerate
-        lt = drf.util.sample_to_datetime(lt_samples, op.samplerate)
-        if op.verbose:
-             ltstr = lt.strftime('%a %b %d %H:%M:%S.%f %Y')
-             print('Launch time: {0} ({1})'.format(ltstr, repr(ltts)))
-
-        # command launch time
-        ct_td = lt - drf.util.epoch
-        ct_secs = ct_td.total_seconds() // 1.0
-        ct_frac = ct_td.microseconds / 1000000.0
-
-        usrp.set_start_time(
-            uhd.time_spec(ct_secs) + uhd.time_spec(ct_frac)
-        )
+        
+        #gpsts = usrp.get_mboard_sensor("gps_time").to_int()
+        #ltts = gpsts + 2
+        ltts = usrp.get_time_last_pps().get_real_secs() + 2
+        usrp.set_start_time(uhd.time_spec(ltts))
 
         # populate flowgraph one channel at a time
         fg = gr.top_block()
@@ -843,6 +814,7 @@ class Thor(object):
                 / np.longdouble(ch_samplerate_frac.denominator)
             )
             start_sample = int(np.uint64(ltts * ch_samplerate_ld))
+            print('start_sample: %i' % start_sample)
 
             # create digital RF sink
             dst = gr_drf.digital_rf_channel_sink(
@@ -917,39 +889,17 @@ class Thor(object):
         # start the flowgraph once we are near the launch time
         # (start too soon and device buffers might not yet be flushed)
         # (start too late and device might not be able to start in time)
-        while ((lt - pytz.utc.localize(datetime.utcnow()))
-                > timedelta(seconds=1.2)):
+        while (ltts - usrp.get_mboard_sensor("gps_time").to_int()) > 1:
             time.sleep(0.1)
         fg.start()
 
-        time.sleep(5)
         # Step through freqs
         freqstep_log_fname = os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log'
         freq_stepper.step(usrp, op, freq_list_fname=op.freq_list_fname, out_fname=freqstep_log_fname)
 
         # wait until flowgraph stops
         try:
-            if et is None:
-                fg.wait()
-            else:
-                # sleep until end time nears
-                while(pytz.utc.localize(datetime.utcnow()) <
-                        et - timedelta(seconds=2)):
-                    time.sleep(1)
-                else:
-                    # issue stream stop command at end time
-                    ct_td = et - drf.util.epoch
-                    ct_secs = ct_td.total_seconds() // 1.0
-                    ct_frac = ct_td.microseconds / 1000000.0
-                    usrp.set_command_time(
-                        (uhd.time_spec(ct_secs) + uhd.time_spec(ct_frac)),
-                        uhd.ALL_MBOARDS,
-                    )
-                    stop_enum = uhd.stream_cmd.STREAM_MODE_STOP_CONTINUOUS
-                    usrp.issue_stream_cmd(uhd.stream_cmd(stop_enum))
-                    usrp.clear_command_time(uhd.ALL_MBOARDS)
-                    # sleep until after end time
-                    time.sleep(2)
+            fg.wait()
         except KeyboardInterrupt:
             # catch keyboard interrupt and simply exit
             pass
@@ -1102,15 +1052,6 @@ def _add_receiver_group(parser):
                 (default: '')''',
     )
     recgroup.add_argument(
-        '--sync_source', dest='sync_source',
-        help='''Clock and time source for all mainboards.
-                (default: external)''',
-    )
-    recgroup.add_argument(
-        '--nosync', dest='sync', action='store_false',
-        help='''No syncing with external clock. (default: False)''',
-    )
-    recgroup.add_argument(
         '--stop_on_dropped', dest='stop_on_dropped', action='store_true',
         help='''Stop on dropped packet. (default: %(default)s)''',
     )
@@ -1119,11 +1060,7 @@ def _add_receiver_group(parser):
         help='''Enable realtime scheduling if possible.
                 (default: %(default)s)''',
     )
-    recgroup.add_argument(
-        '--notest', dest='test_settings', action='store_false',
-        help='''Do not test USRP settings until experiment start.
-                (default: False)''',
-    )
+    
     return parser
 
 
@@ -1300,18 +1237,7 @@ def _add_drf_group(parser):
 
 def _add_time_group(parser):
     timegroup = parser.add_argument_group(title='time')
-    timegroup.add_argument(
-        '-s', '--starttime', dest='starttime',
-        help='''Start time of the experiment as datetime (if in ISO8601 format:
-                2016-01-01T15:24:00Z) or Unix time (if float/int).
-                (default: start ASAP)''',
-    )
-    timegroup.add_argument(
-        '-e', '--endtime', dest='endtime',
-        help='''End time of the experiment as datetime (if in ISO8601 format:
-                2016-01-01T16:24:00Z) or Unix time (if float/int).
-                (default: wait for Ctrl-C)''',
-    )
+    
     timegroup.add_argument(
         '-f', '--freq_list', dest='freq_list_fname',
         help='''Text file with list of tune times in format:
@@ -1322,16 +1248,7 @@ def _add_time_group(parser):
         45:  12
         (default: None)''',
     )   
-    timegroup.add_argument(
-        '-l', '--duration', dest='duration', type=evalint,
-        help='''Duration of experiment in seconds. When endtime is not given,
-                end this long after start time. (default: wait for Ctrl-C)''',
-    )
-    timegroup.add_argument(
-        '-p', '--cycle-length', dest='period', type=evalint,
-        help='''Repeat time of experiment cycle. Align to start of next cycle
-                if start time has passed. (default: 10)''',
-    )
+   
     return parser
 
 
@@ -1495,10 +1412,6 @@ def _run_thor(args):
             else:
                 metadata_dict[k] = v
         args.metadata = metadata_dict
-
-    # ignore test_settings option if no starttime is set (starting right now)
-    if args.starttime is None:
-        args.test_settings = False
 
     options = {k: v for k, v in args._get_kwargs() if v is not None}
     runopts = {

@@ -91,7 +91,6 @@ def step(usrp, op,
             tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
             if out_fname:
                 with open(tune_time.strftime(out_fname), 'a') as f:
-                    # f.write('GPS lock status: %s' % str(gps_lock))
                     f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), \
                             str(freq).rjust(4), tune_sample))
           
@@ -126,17 +125,46 @@ def step(usrp, op,
 
         time.sleep(sleeptime)
 
+def derek_set_dev_time(usrp):
+    # 7)  Verify that usrp->get_time_last_pps() and usrp->get_mboard_sensor("gps_time") return the same time.
+    #while usrp.get_time_last_pps().get_real_secs() != usrp.get_mboard_sensor("gps_time").to_real():
+    # 1)  Poll on usrp->get_mboard_sensor("gps_locked") until it returns true
+    while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
+        print("Waiting for gps lock...")
+        time.sleep(5)
+    print("...GPS locked!")
+
+    # 2)  Poll on usrp->get_time_last_pps() until a change is seen.
+    pps = usrp.get_time_last_pps()
+    while usrp.get_time_last_pps() == pps:
+        time.sleep(0.1)
+
+    # 3)  Sleep 200ms (allow NMEA string to propagate)
+    time.sleep(0.2)
+
+    # 4)  Use "usrp->set_time_next_pps(uhd::time_spec_t(usrp->get_mboard_sensor("gps_time").to_int()+1));" to set the time
+    usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 1))
+
+    # 5)  Poll on usrp->get_time_last_pps() until a change is seen.
+    pps = usrp.get_time_last_pps()
+    while usrp.get_time_last_pps() == pps:
+        time.sleep(0.1)
+
+    # 6)  Sleep 200ms (allow NMEA string to propagate)
+    time.sleep(0.2)
+
+    print('time set: USRP = %i, GPSDO = %i' % (usrp.get_time_last_pps().get_real_secs(), usrp.get_mboard_sensor("gps_time").to_real()))
 
 def set_dev_time(usrp):
     """ Set the USRP's time based on GPS """
     # Check for GPS lock
     while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
-        print("waiting for gps lock...")
+        print("Waiting for gps lock...")
         time.sleep(5)
     print("...GPS locked!")
     assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
 
-    usrptime_secs = int(usrp.get_time_now().get_real_secs())
+    usrptime_secs = np.round(usrp.get_time_now().get_real_secs())
     gpstime_secs = usrp.get_mboard_sensor("gps_time").to_int() 
     while usrptime_secs != gpstime_secs:
         usrp.set_time_now(uhd.time_spec_t(gpstime_secs), uhd.ALL_MBOARDS)

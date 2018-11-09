@@ -243,7 +243,7 @@ if __name__ == '__main__':
   
     for time, row in idx_data.iterrows():
         try:
-            dsp_delay = 1775  #1780    # 7968
+            dsp_delay = 562   #1780    # 7968
             idx = np.array(int(row['idx'])) + dsp_delay
             res = analyze_prc(
                 data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,
@@ -254,6 +254,10 @@ if __name__ == '__main__':
             plt.clf()
 
             M = 10.0 * np.log10((np.abs(res['spec'])))
+
+            print('Shape of M: 1500 x 1000 (Doppler x Range)')
+            maxind = np.unravel_index(M.argmax(), M.shape)
+            print('Max. value: %2.2f dB at %i, %i' % (M.max(), maxind[0], maxind[1]))
 
             # calculate plot parameters
             tx_freq = row['freq'] * 1E6
