@@ -540,7 +540,6 @@ class Tx(object):
         
         # get UHD USRP source
         usrp = self._usrp_setup()
-        freq_stepper.set_dev_time(usrp)
 
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
@@ -567,13 +566,7 @@ class Tx(object):
         # (start too soon and device buffers might not yet be flushed)
         # (start too late and device might not be able to start in time)
 
-        """
-        while ((lt - pytz.utc.localize(datetime.utcnow()))
-                > timedelta(seconds=1.2)):
-        """
-
-        while ((lt - pytz.utc.localize(datetime.utcfromtimestamp(
-            usrp.get_mboard_sensor("gps_time")))) > timedelta(seconds=1.2)):
+        while (ltts - usrp.get_mboard_sensor("gps_time").to_int()) > 1.2:
             time.sleep(0.1)
         fg.start()
 
