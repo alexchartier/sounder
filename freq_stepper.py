@@ -121,13 +121,10 @@ def step(usrp, op,
                     (gpstime.strftime(timestr),
                     usrptime.strftime(timestr))
                 )
-                
-
         time.sleep(sleeptime)
 
-def derek_set_dev_time(usrp):
-    # 7)  Verify that usrp->get_time_last_pps() and usrp->get_mboard_sensor("gps_time") return the same time.
-    #while usrp.get_time_last_pps().get_real_secs() != usrp.get_mboard_sensor("gps_time").to_real():
+
+def set_dev_time(usrp):
     # 1)  Poll on usrp->get_mboard_sensor("gps_locked") until it returns true
     while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
         print("Waiting for gps lock...")
@@ -153,30 +150,13 @@ def derek_set_dev_time(usrp):
     # 6)  Sleep 200ms (allow NMEA string to propagate)
     time.sleep(0.2)
 
-    print('time set: USRP = %i, GPSDO = %i' % (usrp.get_time_last_pps().get_real_secs(), usrp.get_mboard_sensor("gps_time").to_real()))
-
-def set_dev_time(usrp):
-    """ Set the USRP's time based on GPS """
-    # Check for GPS lock
-    while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
-        print("Waiting for gps lock...")
-        time.sleep(5)
-    print("...GPS locked!")
-    assert usrp.get_mboard_sensor("gps_locked", 0).to_bool(), "GPS still not locked"
-
-    usrptime_secs = np.round(usrp.get_time_now().get_real_secs())
-    gpstime_secs = usrp.get_mboard_sensor("gps_time").to_int() 
-    while usrptime_secs != gpstime_secs:
-        usrp.set_time_now(uhd.time_spec_t(gpstime_secs), uhd.ALL_MBOARDS)
-        print('USRP time %i, GPS time %i' % (usrptime_secs, gpstime_secs))
-        time.sleep(1)
-        usrptime_secs = int(usrp.get_time_now().get_real_secs()) + 1
-        gpstime_secs = usrp.get_mboard_sensor("gps_time").to_int() 
-    print('USRP time %i, GPS time %i' % (usrptime_secs, gpstime_secs))
-
-    # wait for time registers to be in known state
-    time.sleep(1)
-    print('Time set using GPS')
+    # 7)  Verify that usrp->get_time_last_pps() and usrp->get_mboard_sensor("gps_time") return the same time.
+    #while usrp.get_time_last_pps().get_real_secs() != usrp.get_mboard_sensor("gps_time").to_real():
+    print(
+        'time set: USRP = %i, GPSDO = %i' % (\
+        usrp.get_time_last_pps().get_real_secs(), 
+        usrp.get_mboard_sensor("gps_time").to_real()
+    ))
 
 
 def get_freq_list(freq_list_fname):

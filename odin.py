@@ -455,7 +455,7 @@ class Thor(object):
 
         # set per-channel options
         # set command time so settings are synced
-        freq_stepper.derek_set_dev_time(usrp)
+        freq_stepper.set_dev_time(usrp)
         gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
         gpstime_secs = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
         COMMAND_DELAY = 0.2 
@@ -685,9 +685,6 @@ class Thor(object):
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
         #  there is time to set up flowgraph)
-        
-        #gpsts = usrp.get_mboard_sensor("gps_time").to_int()
-        #ltts = gpsts + 2
         ltts = usrp.get_time_last_pps().get_real_secs() + 2
         usrp.set_start_time(uhd.time_spec(ltts))
 

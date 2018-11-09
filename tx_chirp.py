@@ -545,30 +545,8 @@ class Tx(object):
         # set launch time
         # (at least 1 second out so USRP start time can be set properly and
         #  there is time to set up flowgraph)
-    
-        gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
-        # now = pytz.utc.localize(datetime.utcnow())
-        now = pytz.utc.localize(gpstime)
-        # launch on integer second by default for convenience  (ceil + 1)
-        lt = now.replace(microsecond=0) + timedelta(seconds=2)
-
-        ltts = (lt - drf.util.epoch).total_seconds()
-        # adjust launch time forward so it falls on an exact sample since epoch
-        lt_samples = np.ceil(ltts * op.samplerate)
-        ltts = lt_samples / op.samplerate
-        lt = drf.util.sample_to_datetime(lt_samples, op.samplerate)
-        if op.verbose:
-            ltstr = lt.strftime('%a %b %d %H:%M:%S.%f %Y')
-            print('Launch time: {0} ({1})'.format(ltstr, repr(ltts)))
-
-        # command launch time
-        ct_td = lt - drf.util.epoch
-        ct_secs = ct_td.total_seconds() // 1.0
-        ct_frac = ct_td.microseconds / 1000000.0
-
-        usrp.set_start_time(
-            uhd.time_spec(ct_secs) + uhd.time_spec(ct_frac)
-        )
+        ltts = usrp.get_time_last_pps().get_real_secs() + 2
+        usrp.set_start_time(uhd.time_spec(ltts))
 
         # populate flowgraph one channel at a time
         fg = gr.top_block()
