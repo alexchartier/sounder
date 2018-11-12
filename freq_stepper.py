@@ -84,6 +84,9 @@ def step(usrp, op,
             tune_time_rsamples = np.ceil(tune_time_secs * op.samplerate)
             tune_time_secs = tune_time_rsamples / op.samplerate
 
+            pdb.set_trace()  # Try the next line instead of the above to get rid of minor offset
+            tune_time_secs = usrp.get_time_last_pps().get_real_secs() + 1
+
             gps_lock = usrp.get_mboard_sensor("gps_locked").to_bool()
             print('GPS lock status: %s' % gps_lock)
 
