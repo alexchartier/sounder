@@ -13,8 +13,8 @@ tx_freq = 33E6
 
 # inputs  (first three MUST match in Tx and Rx)
 sample_rate = 1E6
-baud_oversampling = 40  
-code_len_bauds = 400  # (-l)
+baud_oversampling = 20  
+code_len_bauds = 10000  # (-l)
 
 nranges = 1000  # (-r)
 freq_dwell_time = 5   # for chirpsounder the radar sits on a specified frequency until it moves to the next one
