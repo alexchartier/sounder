@@ -12,7 +12,7 @@ python prc_analyze.py /data/prc -c hfrx -l 10000 -s 0
 # Stepped example using ./sounder
 cd waveforms; python create_waveform.py -l 10000 -b 20 -s 0 -f; cd ..
 python tx_chirp.py -m 192.168.10.3 -d "A:A" -f freq_lists/freq_list.txt -G 1 -g 0 -r 1e6 waveforms/code-l10000-b20-000000f.bin
-python odin.py -m 192.168.10.13 -d "A:A" -c hfrx -f freq_lists/freq_list.txt -r 1e6 -i 20 /data/chirp
+python odin.py -m 192.168.10.13 -d "A:A" -c hfrx -f freq_lists/freq_list.txt -r 1e6 -i 10 /data/chirp
 python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
 
 
@@ -117,6 +117,9 @@ python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
     For octoclock operation, the PPS and 50MHz should both be plugged in externally, 
     and in that configuration the internal GPSDO (if present) SMA cables are unplugged. 
     That way the Octoclock provides 50MHz and PPS while the internal GPSDO provides timestamps
+    
+    gr_remez: too much integration and decimation?
+    acks: launch time in the past or similar
     
 # Having git save your password:
     git config credential.helper store

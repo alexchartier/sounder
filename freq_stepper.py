@@ -80,12 +80,11 @@ def step(usrp, op,
             freq = freq_list[time_next.second]
 
             # Specify USRP tune time on the first exact sample after listed time
-            tune_time_secs = (tune_time - drf.util.epoch).total_seconds()
+            # tune_time_secs = (tune_time - drf.util.epoch).total_seconds()
+            tune_time_secs = usrp.get_time_last_pps().get_real_secs() + 1
             tune_time_rsamples = np.ceil(tune_time_secs * op.samplerate)
             tune_time_secs = tune_time_rsamples / op.samplerate
 
-            pdb.set_trace()  # Try the next line instead of the above to get rid of minor offset
-            tune_time_secs = usrp.get_time_last_pps().get_real_secs() + 1
 
             gps_lock = usrp.get_mboard_sensor("gps_locked").to_bool()
             print('GPS lock status: %s' % gps_lock)
@@ -128,36 +127,36 @@ def step(usrp, op,
 
 
 def set_dev_time(usrp):
-    # 1)  Poll on usrp->get_mboard_sensor("gps_locked") until it returns true
-    while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
-        print("Waiting for gps lock...")
-        time.sleep(5)
-    print("...GPS locked!")
-
-    # 2)  Poll on usrp->get_time_last_pps() until a change is seen.
-    pps = usrp.get_time_last_pps()
-    while usrp.get_time_last_pps() == pps:
-        time.sleep(0.1)
-
-    # 3)  Sleep 200ms (allow NMEA string to propagate)
-    time.sleep(0.2)
-
-    # 4)  Use "usrp->set_time_next_pps(uhd::time_spec_t(usrp->get_mboard_sensor("gps_time").to_int()+1));" to set the time
-    usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 1))
-
-    # 5)  Poll on usrp->get_time_last_pps() until a change is seen.
-    pps = usrp.get_time_last_pps()
-    while usrp.get_time_last_pps() == pps:
-        time.sleep(0.1)
-
-    # 6)  Sleep 200ms (allow NMEA string to propagate)
-    time.sleep(0.2)
-
     # 7)  Verify that usrp->get_time_last_pps() and usrp->get_mboard_sensor("gps_time") return the same time.
-    #while usrp.get_time_last_pps().get_real_secs() != usrp.get_mboard_sensor("gps_time").to_real():
+    while usrp.get_time_last_pps().get_real_secs() + 1 != usrp.get_mboard_sensor("gps_time").to_real():
+        # 1)  Poll on usrp->get_mboard_sensor("gps_locked") until it returns true
+        while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
+            print("Waiting for gps lock...")
+            time.sleep(5)
+        print("...GPS locked!")
+
+        # 2)  Poll on usrp->get_time_last_pps() until a change is seen.
+        pps = usrp.get_time_last_pps()
+        while usrp.get_time_last_pps() == pps:
+            time.sleep(0.1)
+
+        # 3)  Sleep 200ms (allow NMEA string to propagate)
+        time.sleep(0.2)
+
+        # 4)  Use "usrp->set_time_next_pps(uhd::time_spec_t(usrp->get_mboard_sensor("gps_time").to_int()+1));" to set the time
+        usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 1))
+
+        # 5)  Poll on usrp->get_time_last_pps() until a change is seen.
+        pps = usrp.get_time_last_pps()
+        while usrp.get_time_last_pps() == pps:
+            time.sleep(0.1)
+
+        # 6)  Sleep 200ms (allow NMEA string to propagate)
+        time.sleep(0.2)
+
     print(
         'time set: USRP = %i, GPSDO = %i' % (\
-        usrp.get_time_last_pps().get_real_secs(), 
+        usrp.get_time_last_pps().get_real_secs() + 1, 
         usrp.get_mboard_sensor("gps_time").to_real()
     ))
 

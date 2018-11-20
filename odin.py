@@ -886,7 +886,7 @@ class Thor(object):
         # start the flowgraph once we are near the launch time
         # (start too soon and device buffers might not yet be flushed)
         # (start too late and device might not be able to start in time)
-        while (ltts - usrp.get_mboard_sensor("gps_time").to_int()) > 1:
+        while (ltts - usrp.get_time_last_pps().get_real_secs()) > 1:
             time.sleep(0.1)
         fg.start()
 
