@@ -1,0 +1,11 @@
+freq_list
+shift time (seconds): shift frequency (MHz)
+
+0:  2.5
+10: 4.5
+20: 5.5
+30: 6.5
+40: 8.5
+50: 10.5
+
+
