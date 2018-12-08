@@ -26,13 +26,11 @@ from argparse import ArgumentParser
 
 import numpy as np
 import scipy.signal
-import pandas
 
 import digital_rf as drf
-import pdb
 
 
-def create_pseudo_random_code(clen=1000, seed=0):
+def create_pseudo_random_code(clen=10000, seed=0):
     """
     seed is a way of reproducing the random code without
     having to store all actual codes. the seed can then
@@ -42,7 +40,7 @@ def create_pseudo_random_code(clen=1000, seed=0):
     np.random.seed(seed)
     phases = np.array(
         np.exp(1.0j * 2.0 * math.pi * np.random.random(clen)),
-        dtype=np.complex64,
+        dtype=np.complex128,
     )
     return(phases)
 
@@ -55,7 +53,7 @@ def periodic_convolution_matrix(envelope, rmin=0, rmax=100):
     """
     L = len(envelope)
     ridx = np.arange(rmin, rmax)
-    A = np.zeros([L, rmax-rmin], dtype=np.complex64)
+    A = np.zeros([L, rmax-rmin], dtype=np.complex128)
     for i in np.arange(L):
         A[i, :] = envelope[(i-ridx) % L]
     result = {}
@@ -86,11 +84,9 @@ def create_estimation_matrix(code, rmin=0, rmax=1000, cache=True):
         return(r_cache)
 
 
-def analyze_prc(
-                dirn='', channel='hfrx', idx0=0, an_len=1000000, clen=10000, station=0,
-                Nranges=1000, rfi_rem=True, cache=True,
-                ):
-    r"""Analyze pseudorandom code transmission for a block of data.
+def analyze_prc(dirn='', channel='hfrx', idx0=0, an_len=1000000,
+                clen=10000, station=0,Nranges=1000, cache=True):
+    """Analyze pseudorandom code transmission for a block of data.
 
     idx0 = start idx
     an_len = analysis length
@@ -99,7 +95,6 @@ def analyze_prc(
     cache = Do we cache (\conj(A^T)\*A)^{-1}\conj{A}^T for linear least squares
         solution (significant speedup)
     rfi_rem = Remove RFI (whiten noise).
-    Nranges = number of range gates
 
     """
     if type(dirn) is str:
@@ -108,24 +103,25 @@ def analyze_prc(
         g = dirn
 
     code = create_pseudo_random_code(clen=clen, seed=station)
-    N = an_len / clen  # What is N? Number of waveform repetitions in the signal
-    assert N == np.floor(N), 'N is not an integer'
-    N = int(N)
-
-    res = np.zeros([N, Nranges], dtype=np.complex64)
+    N = an_len / clen
+    res = np.zeros([N, Nranges], dtype=np.complex128)
     r = create_estimation_matrix(code=code, cache=cache, rmax=Nranges)
-    B = r['B']  # B is the estimation matrix?
-    spec = np.zeros([N, Nranges], dtype=np.complex64)
+    B = r['B']
+    spec = np.zeros([N, Nranges], dtype=np.complex128)
 
     for i in np.arange(N):
-        z = g.read_vector_c81d(idx0 + i * clen, clen, channel)  # z is the signal
+        z = g.read_vector_c81d(idx0 + i * clen, clen, channel)
         z = z - np.median(z)  # remove dc
         res[i, :] = np.dot(B, z)
+        
+#    plt.close()
+#    plt.pcolormesh(np.transpose(np.abs(res)))
+#    plt.colorbar()
+#    plt.show()
+#    plt.close()
     for i in np.arange(Nranges):
-        # FFT on the convolved signal 
-        # Gaussian pulse shaping reduces out-of-band emissions
         spec[:, i] = np.fft.fftshift(np.fft.fft(
-            scipy.signal.blackmanharris(N) * res[:, i]  
+            res[:, i]
         ))
 
     if rfi_rem:
@@ -137,42 +133,55 @@ def analyze_prc(
     ret = {}
     ret['res'] = res
     ret['spec'] = spec
-
     return(ret)
 
 
-def read_log(logfile):
-    print('Loading log file')
-    with open(logfile, 'r') as f:
-        times = []
-        freqs = []
-        samples = []
-        for line in f:
-            if line[:4] == 'Tune':
-                continue
-            else:
-                vals = line.split()
-                times.append(datetime.datetime.strptime(vals[0], '%Y/%m/%d-%H:%M:%S.%f'))
-                freqs.append(float(vals[1]))
-                samples.append(int(vals[2]))
-    times = np.array(times)
-    freqs = np.array(freqs)
-    samples = np.array(samples)
+def analyze_prc2(dirn='', channel='hfrx', idx0=0, an_len=1000000,
+                clen=10000, station=0, Nranges=1000, rfi_rem=True, cache=True):
+    """Analyze pseudorandom code transmission for a block of data.
 
-    time = times[:-1] + (times[1:] - times[:-1]) / 2
-    anlen = samples[1:] - samples[:-1]
-    data = {
-            'freq': freqs[:-1],
-             'idx': samples[:-1],
-           'anlen': samples[1:] - samples[:-1],
-            }
-    df = pandas.DataFrame(data, index=time)
-    return df
-     
+    idx0 = start idx
+    an_len = analysis length
+    clen = code length
+    station = random seed for pseudorandom code
+    cache = Do we cache (\conj(A^T)\*A)^{-1}\conj{A}^T for linear least squares
+        solution (significant speedup)
+    rfi_rem = Remove RFI (whiten noise).
+
+    """
+    if type(dirn) is str:
+        g = drf.DigitalRFReader(dirn)
+    else:
+        g = dirn
+        
+    code = create_pseudo_random_code(clen=clen, seed=station)
+
+    rd = np.zeros([Nranges, clen])
+    n_incoh_int = an_len / clen
+    for ti in range(n_incoh_int):
+        print(ti)
+        for ri in range(Nranges):
+            z = g.read_vector_c81d(idx0 + ti * clen + ri, clen, channel)
+            rd[ri, :] = np.abs(np.fft.fftshift(np.fft.fft(np.conj(code) * z))) ** 2.0
+    dB = 10.0 * np.log10(rd)
+    dB = dB - np.median(dB)
+    plt.clf()
+    
+    rg = 3e8 * np.arange(Nranges) / sr / 1e3
+    dop = np.fft.fftshift(np.fft.fftfreq(op.codelen, d=1.0 / sr))
+
+    plt.pcolormesh(dop, rg, dB, vmin=0)
+    plt.xlabel("Doppler (Hz)")
+    plt.ylabel("Range (km)")    
+    plt.colorbar()
+    plt.title("Incoherent matched filter analysis, SNR (dB)")
+    plt.show()
+    plt.close()
+
 
 if __name__ == '__main__':
     import matplotlib
-    matplotlib.use('Agg')
+#    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
     desc = """Script for analyzing pseudorandom-coded waveforms.
@@ -203,8 +212,8 @@ if __name__ == '__main__':
         help='''Delete existing processed files.''',
     )
     parser.add_argument(
-        '-n', '--logfile', dest='logfile', type=str, default='freqstep.log',
-        help='''Frequency sample log file produced by tx_chirp.py (default: %(default)s)''',
+        '-n', '--analysis_length', dest='anlen', type=int, default=6000000,
+        help='''Analysis length. (default: %(default)s)''',
     )
     parser.add_argument(
         '-l', '--code_length', dest='codelen', type=int, default=10000,
@@ -222,7 +231,6 @@ if __name__ == '__main__':
     op = parser.parse_args()
 
     op.datadir = os.path.abspath(op.datadir)
-
     # join outdir to datadir to allow for relative path, normalize
     op.outdir = os.path.abspath(op.outdir.format(datadir=op.datadir))
     if not os.path.isdir(op.outdir):
@@ -235,64 +243,54 @@ if __name__ == '__main__':
         ):
             os.remove(f)
 
-    data = drf.DigitalRFReader(op.datadir)
-    sr = data.get_properties(op.ch)['samples_per_second']
-    b = data.get_bounds(op.ch)
+    d = drf.DigitalRFReader(op.datadir)
+    sr = d.get_properties(op.ch)['samples_per_second']
+    b = d.get_bounds(op.ch)
+    offset=1
+    idx = np.array(b[0])+offset
+    if os.path.isfile(datpath):
+        fidx = np.fromfile(datpath, dtype=np.int)
+        if b[0] <= fidx:
+            idx = fidx
 
-    # Define indexing according to the frequency stepping log file
-    op.logfile = time.strftime(os.path.join(os.path.join(op.datadir, op.ch), op.logfile))
-    idx_data = read_log(op.logfile)
-  
-    for time, row in idx_data.iterrows():
+    while True:
+        if idx + op.anlen > b[1]:
+            print('waiting for more data, sleeping.')
+            time.sleep(op.anlen / sr)
+            b = d.get_bounds(op.ch)
+            continue
+
         try:
-            dsp_delay = 7650   #1780    # 7968
-            idx = np.array(int(row['idx'])) + dsp_delay
+            res = analyze_prc2(d, channel=op.ch, idx0=idx, an_len=op.anlen, clen=op.codelen,
+                               station=op.station, Nranges=op.nranges,
+                               cache=True)
+
             res = analyze_prc(
-                data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,
+                d, channel=op.ch, idx0=idx, an_len=op.anlen, clen=op.codelen,
                 station=op.station, Nranges=op.nranges,
-                cache=True, rfi_rem=True,
+                cache=True, rfi_rem=False,
             )
 
             plt.clf()
 
-            M = 10.0 * np.log10((np.abs(res['spec'])))
-
-            print('Shape of M: %i x %i (Doppler x Range)' % M.shape)
-            maxind = np.unravel_index(M.argmax(), M.shape)
-            print('Max. value: %2.2f dB at %i, %i' % (M.max(), maxind[0], maxind[1]))
-
-            # calculate plot parameters
-            tx_freq = row['freq'] * 1E6
-            sample_rate = sr
-            code_len_bauds = op.codelen
-            freq_dwell_time = row['anlen'] / sample_rate
-
-            # Range characteristics (y-axis)
-            sample_len_secs = 1 / sample_rate
-            rangegate = sample_len_secs * 3e8
-            ranges = np.arange(op.nranges) * rangegate
-
-            # Doppler characteristics (x-axis)
-            code_len_secs = sample_len_secs * code_len_bauds
-            tx_wlen = 3E8 / tx_freq
-            doppler_bandwidth_hz = sample_rate / code_len_bauds
-            doppler_res_hz = doppler_bandwidth_hz / (freq_dwell_time / code_len_secs)
-            doppler_res_ms = doppler_res_hz * tx_wlen / 2
-            vels = (np.arange(M.shape[0]) - M.shape[0] / 2) * doppler_res_ms
+            M = 20.0 * np.log10((np.abs(res['spec'])))
+            M=M-np.median(M)
+            rg=3e8*np.arange(op.nranges)/sr/1e3
+            dop=np.fft.fftshift(np.fft.fftfreq(M.shape[0],d=op.codelen/sr))
             
-            plt.pcolormesh(vels, ranges / 1E3, np.transpose(M), vmin=(np.median(M) - 1.0))
-            plt.ylabel('range (km)')
-            plt.xlabel('Doppler velocity (m/s)')
-            clb = plt.colorbar()
-            clb.set_label('Intensity / dB')
+            plt.pcolormesh(dop,rg,np.transpose(M), vmin=0)
+            plt.xlabel("Doppler (Hz)")
+            plt.ylabel("Range (km)")            
+            plt.colorbar()
 
-            #plt.pcolormesh(np.transpose(M), vmin=(np.median(M) - 1.0))
-            timestr = time.strftime('%Y-%m-%d %H:%M:%S')
-            plt.title('%s %f MHz' % (timestr, row['freq']))
+            plt.title("Coherent analysis (SNR) %s"%(datetime.datetime.utcfromtimestamp(idx / sr).strftime('%Y-%m-%d %H:%M:%S')))
+            plt.show()
             plt.savefig(os.path.join(
                 op.outdir, 'spec-{0:06d}.png'.format(int(np.uint64(idx / sr))),
             ))
-            print('%s' % timestr)
-
+            print('%d' % (idx))
         except IOError:
             print('IOError, skipping.')
+        idx = idx + op.anlen
+        idx.tofile(datpath)
+

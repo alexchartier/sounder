@@ -12,17 +12,17 @@ tx_freq = 33E6
 """
 
 # inputs  (first three MUST match in Tx and Rx)
-sample_rate = 1E6
-baud_oversampling = 20  
-code_len_bauds = 10000  # (-l)
+sample_rate = 5E5
+baud_oversampling = 10  
+code_len_bauds = 2000  # (-l)
 
-nranges = 1000  # (-r)
+nranges = 2000  # (-r)
 freq_dwell_time = 5   # for chirpsounder the radar sits on a specified frequency until it moves to the next one
 tx_freq = 10E6
-freq_list = np.linspace(2, 12, 21) * 1E6
+freq_list = np.linspace(2, 15, 12) * 1E6
 
 # Standard stuff
-sample_size_bytes = 8
+sample_size_bytes = 4
 day_secs = 86400
 terabyte_units = 1E12  # bytes
 
@@ -45,6 +45,7 @@ print("Ranges analyzed: %i" % nranges)
 print('Analysis length: %1.1f seconds, %i samples ' % (freq_dwell_time, an_len_samples))
 print('Frequency list: %s' % str(freq_list / 1E6))
 print('Ne list: %s x 1E10 electrons/m3' % str(1.24 * (freq_list/1E6) ** 2)) 
+print('Ne 30deg incidence list: %s x 1E10 electrons/m3' % str(1.24 * (freq_list/1E6) ** 2 / np.cos(np.deg2rad(60)))) 
 print('\n\n*** expected outputs at %2.2f MHz (***' % (tx_freq / 1E6))
 
 # How much velocity resolution to expect?

@@ -1,14 +1,17 @@
 #!/bin/sh
-# Add the following to crontab -e to run this every minute * * * * * /home/alex/sounder_code/run_rx >> /home/alex/sounder_code/run_rx.log &
-echo "Started run_rx - tail -f /var/log/syslog for more information"
+# Add the following to crontab -e to run this every minute * * * * * /home/alex/sounder/run_rx >> /home/alex/sounder/run_rx.log &
+echo "Started run_rx_aoa - tail -f /var/log/syslog for more information"
 current_time="`date +%Y%m%d%H%M`";
-export sdir='/home/alex/sounder_code/'
+
+export sdir=/home/alex/sounder/odin.py 
+export freq_list='freq_lists/antarctic_ops.txt'
+export rate=5E5
+export type='sc16'
 
 if ! pgrep -x "python" > /dev/null
 then
-    echo "tx_chirp.py not running, launching at ${current_time}"
-    python $sdir/odin.py -m 192.168.10.12 -d "A:A" -c hfrx -f 3.6e6 -r 1e6 -i 100 /data
-
+    echo "odin.py not running, launching at ${current_time}"
+    python $sdir -m 192.168.10.12 -d "A:A" -c hfrx_0 --type $type -f $freq_list -r $rate -i 10 /data  &
 else :
     pid="`pgrep -x python`"
     echo "odin.py running at ${current_time} as pid ${pid}"
