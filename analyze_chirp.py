@@ -123,8 +123,10 @@ def analyze_prc(
         z = z - np.median(z)  # remove dc
         res[i, :] = np.dot(B, z)
     for i in np.arange(Nranges):
+        # FFT on the convolved signal 
+        # Gaussian pulse shaping reduces out-of-band emissions
         spec[:, i] = np.fft.fftshift(np.fft.fft(
-            scipy.signal.blackmanharris(N) * res[:, i]  # Gaussian pulse shaping reduces out-of-band emissions
+            scipy.signal.blackmanharris(N) * res[:, i]  
         ))
 
     if rfi_rem:
