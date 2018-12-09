@@ -29,6 +29,7 @@ import scipy.signal
 import pandas
 
 import digital_rf as drf
+import pickle
 import pdb
 
 
@@ -201,8 +202,16 @@ if __name__ == '__main__':
         help='''Delete existing processed files.''',
     )
     parser.add_argument(
+        '-p', '--plot', action='store_true', default=False,
+        help='''Produce plots instead of saving out spectra''',
+    )
+    parser.add_argument(
         '-n', '--logfile', dest='logfile', type=str, default='freqstep.log',
         help='''Frequency sample log file produced by tx_chirp.py (default: %(default)s)''',
+    )
+    parser.add_argument(
+        '-f', '--spec_fname', dest='spec_fname', type=str, default='spectra_%Y%m%d.pkl',
+        help='''Output spectra stored here (default: %(default)s)''',
     )
     parser.add_argument(
         '-l', '--code_length', dest='codelen', type=int, default=10000,
@@ -238,32 +247,48 @@ if __name__ == '__main__':
     b = data.get_bounds(op.ch)
 
     # Define indexing according to the frequency stepping log file
-    op.logfile = time.strftime(os.path.join(os.path.join(op.datadir, op.ch), op.logfile))
+    op.logfile = os.path.join(os.path.join(op.datadir, op.ch), op.logfile)
     idx_data = read_log(op.logfile)
-  
+
+    op.spec_fname = os.path.join(op.datadir, 'spectra/%s' % op.spec_fname)
+
+    try:
+        os.makedirs(os.path.dirname(op.spec_fname))
+    except:
+        None
+
+    """
+    # If there's a save-file, see where it got up to
+    try:
+        with open(freq_fname_t, 'rb') as f:
+            spectra = pickle.load(f)
+        pdb.set_trace()
+        idx_data = idx_data[idx_data_times > spectra_times.max()]        
+    except:
+        None
+    """ 
+    ct = 0
     for time, row in idx_data.iterrows():
         try:
-            dsp_delay = 7650   #1780    # 7968
+            dsp_delay = 7650   
             idx = np.array(int(row['idx'])) + dsp_delay
             res = analyze_prc(
                 data, channel=op.ch, idx0=idx, an_len=int(row['anlen']), clen=op.codelen,
                 station=op.station, Nranges=op.nranges,
-                cache=True, rfi_rem=True,
+                cache=True, rfi_rem=False,
             )
 
-            plt.clf()
-
             M = 10.0 * np.log10((np.abs(res['spec'])))
-
-            print('Shape of M: %i x %i (Doppler x Range)' % M.shape)
-            maxind = np.unravel_index(M.argmax(), M.shape)
-            print('Max. value: %2.2f dB at %i, %i' % (M.max(), maxind[0], maxind[1]))
 
             # calculate plot parameters
             tx_freq = row['freq'] * 1E6
             sample_rate = sr
             code_len_bauds = op.codelen
             freq_dwell_time = row['anlen'] / sample_rate
+
+            maxind = np.unravel_index(M.argmax(), M.shape)
+            print('Freq: %2.2f, Shape of M: %i x %i (Doppler x Range): Max. value: %2.2f dB at %i, %i'\
+                 % (row['freq'], M.shape[0], M.shape[1], M.max(), maxind[0], maxind[1]))
 
             # Range characteristics (y-axis)
             sample_len_secs = 1 / sample_rate
@@ -277,20 +302,43 @@ if __name__ == '__main__':
             doppler_res_hz = doppler_bandwidth_hz / (freq_dwell_time / code_len_secs)
             doppler_res_ms = doppler_res_hz * tx_wlen / 2
             vels = (np.arange(M.shape[0]) - M.shape[0] / 2) * doppler_res_ms
-            
-            plt.pcolormesh(vels, ranges / 1E3, np.transpose(M), vmin=(np.median(M) - 1.0))
-            plt.ylabel('range (km)')
-            plt.xlabel('Doppler velocity (m/s)')
-            clb = plt.colorbar()
-            clb.set_label('Intensity / dB')
+           
+            if op.plot: 
+                plt.clf()
+                plt.pcolormesh(vels, ranges / 1E3, np.transpose(M), vmin=(np.median(M) - 1.0),)# vmax=10.)
+                plt.ylabel('range (km)')
+                plt.xlabel('Doppler velocity (m/s)')
+                clb = plt.colorbar()
+                clb.set_label('Intensity / dB')
 
-            #plt.pcolormesh(np.transpose(M), vmin=(np.median(M) - 1.0))
-            timestr = time.strftime('%Y-%m-%d %H:%M:%S')
-            plt.title('%s %f MHz' % (timestr, row['freq']))
-            plt.savefig(os.path.join(
-                op.outdir, 'spec-{0:06d}.png'.format(int(np.uint64(idx / sr))),
-            ))
-            print('%s' % timestr)
+                timestr = time.strftime('%Y-%m-%d %H:%M:%S')
+                plt.title('%s %f MHz' % (timestr, row['freq']))
+                plt.savefig(os.path.join(
+                    op.outdir, 'spec-{0:06d}.png'.format(int(np.uint64(idx / sr))),
+                ))
+                print('%s' % timestr)
+
+            else:
+                spec_fname_t = time.strftime(op.spec_fname)
+                try:
+                    with open(spec_fname_t, 'rb') as f:
+                        spectra = pickle.load(f)
+                    spectra['time'].append(time)
+                    spectra['freq'].append(row['freq'])
+                    spectra['M'].append(M)
+                    spectra['range'].append(ranges)
+                    spectra['doppler'].append(vels)
+                except:
+                    print('creating new file: %s' % spec_fname_t)
+                    spectra = {
+                        'time': [time],
+                        'M': [M],
+                        'range': [ranges],
+                        'doppler': [vels],
+                        'freq': [row['freq']],
+                    }
+                with open(spec_fname_t, 'wb') as f:
+                    pickle.dump(spectra, f)
 
         except IOError:
             print('IOError, skipping.')
