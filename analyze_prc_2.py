@@ -26,6 +26,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import scipy.signal
+from scipy.sparse import csr_matrix
 
 import digital_rf as drf
 
@@ -85,7 +86,7 @@ def create_estimation_matrix(code, rmin=0, rmax=1000, cache=True):
 
 
 def analyze_prc(dirn='', channel='hfrx', idx0=0, an_len=1000000,
-                clen=10000, station=0,Nranges=1000, cache=True):
+                clen=10000, station=0, Nranges=1000, cache=True):
     """Analyze pseudorandom code transmission for a block of data.
 
     idx0 = start idx
