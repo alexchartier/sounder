@@ -26,6 +26,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import scipy.signal
+from scipy.sparse import csr_matrix
 
 import digital_rf as drf
 
