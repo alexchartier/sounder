@@ -85,7 +85,7 @@ def create_estimation_matrix(code, rmin=0, rmax=1000, cache=True):
 
 
 def analyze_prc(dirn='', channel='hfrx', idx0=0, an_len=1000000,
-                clen=10000, station=0,Nranges=1000, cache=True):
+                clen=10000, station=0,Nranges=1000, cache=True, rfi_rem=True):
     """Analyze pseudorandom code transmission for a block of data.
 
     idx0 = start idx
@@ -261,14 +261,16 @@ if __name__ == '__main__':
             continue
 
         try:
+            """
             res = analyze_prc2(d, channel=op.ch, idx0=idx, an_len=op.anlen, clen=op.codelen,
                                station=op.station, Nranges=op.nranges,
                                cache=True)
 
+            """
             res = analyze_prc(
                 d, channel=op.ch, idx0=idx, an_len=op.anlen, clen=op.codelen,
                 station=op.station, Nranges=op.nranges,
-                cache=True, rfi_rem=False,
+                cache=True, rfi_rem=True,
             )
 
             plt.clf()
