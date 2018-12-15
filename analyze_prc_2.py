@@ -28,6 +28,7 @@ import numpy as np
 import scipy.signal
 from scipy.sparse import csr_matrix
 
+import pdb
 import digital_rf as drf
 
 
@@ -170,7 +171,6 @@ def analyze_prc2(dirn='', channel='hfrx', idx0=0, an_len=1000000,
     
     rg = 3e8 * np.arange(Nranges) / sr / 1e3
     dop = np.fft.fftshift(np.fft.fftfreq(op.codelen, d=1.0 / sr))
-
     plt.pcolormesh(dop, rg, dB, vmin=0)
     plt.xlabel("Doppler (Hz)")
     plt.ylabel("Range (km)")    
@@ -262,12 +262,10 @@ if __name__ == '__main__':
             continue
 
         try:
-            """
             res = analyze_prc2(d, channel=op.ch, idx0=idx, an_len=op.anlen, clen=op.codelen,
                                station=op.station, Nranges=op.nranges,
                                cache=True)
 
-            """
             res = analyze_prc(
                 d, channel=op.ch, idx0=idx, an_len=op.anlen, clen=op.codelen,
                 station=op.station, Nranges=op.nranges,

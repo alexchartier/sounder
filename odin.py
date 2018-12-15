@@ -665,6 +665,11 @@ class Thor(object):
         if not os.path.isdir(op.datadir):
             os.makedirs(op.datadir)
 
+        # Copy freq_list into the data directory
+        if op.freq_list_fname:
+            pdb.set_trace()  # move this inside the channel dir, do the same to prc_analyze
+            shutil.copy2(op.freq_list_fname, os.path.join(op.datadir, 'freq_list.txt')) 
+
         # get UHD USRP source
         usrp = self._usrp_setup()
 
