@@ -2,8 +2,6 @@
 # ----------------------------------------------------------------------------
 # Copyright (c) 2017 Massachusetts Institute of Technology (MIT)
 # All rights reserved.
-# 
-# Modified by Alex T. Chartier, Johns Hopkins APL
 #
 # Distributed under the terms of the BSD 3-clause license.
 #
@@ -25,15 +23,17 @@ import glob
 import itertools
 import math
 import os
-import shutil
 import time
 from argparse import ArgumentParser
 
 import digital_rf as drf
 import numpy as np
 import scipy.signal
+from scipy.sparse import csr_matrix
 import pdb
 
+import fnmatch
+import pickle
 import sys 
 sys.path.append('./waveforms/')
 from freq_stepper import get_freq_list
@@ -115,11 +115,6 @@ def analyze_prc(
 
     code = create_pseudo_random_code(clen=clen, seed=station)
 
-    #Experimental
-    # code  = waveform(station=station, clen=clen, filter_output=True)
-
-    # <<<<<<
-
     N = an_len / clen
     assert N == np.floor(N), 'N is not an integer'
     N = int(N)
@@ -151,71 +146,6 @@ def analyze_prc(
     return(ret)
 
 
-def sort_freqs(chdir, fdir, freq_list_fname, ):
-    """
-    Move odin output into frequency-specific directories ahead of processing
-
-    """
-    print('moving output into frequency-specific directories')
-
-    # Get frequency information from freq_list
-    flist = get_freq_list(freq_list_fname)
-    freqs = flist.values()
-    shift_secs = flist.keys()
-    shift_secs = np.array(shift_secs)
-    shift_secs.sort()
-
-    # Make frequency sub-directories
-    freq_subdirs = {}
-    for freq in freqs:
-        f_subdir = os.path.join(os.path.join(chdir, fdir), str(freq))
-        freq_subdirs[freq] = f_subdir
-        try:
-            os.makedirs(f_subdir)
-        except:
-            None
-    shutil.copy2(freq_list_fname, f_subdir)
-
-    # Move the files into frequency-specific subdirs
-    subdirs = next(os.walk(chdir))[1]
-    for subdir in subdirs:
-        if (subdir != 'metadata') and (subdir != fdir):
-            subdirn = os.path.join(chdir, subdir)
-            files = os.listdir(subdirn)
-            time.sleep(1)  # wait a few seconds so as not to move open files
-            for f in files:
-                try:
-                    ts = datetime.utcfromtimestamp(float(f.split('.')[0][3:]))
-                    diff = ts.second - shift_secs
-                    shift_t = shift_secs[diff == diff[diff >= 0].min()]
-                    assert len(shift_t) == 1, 'length is wrong'
-                    shift_freq = flist[shift_t[0]]
-                    shutil.move(
-                        os.path.join(subdirn, f), \
-                        os.path.join(freq_subdirs[shift_freq], subdirn.split('/')[-1]),
-                    )
-                except:
-                    None
-
-    # Copy over the metadata files
-    for freq_subdir in freq_subdirs.values():
-        shutil.copy(os.path.join(chdir, 'drf_properties.h5'), freq_subdir)
-        new_metadatadir = os.path.join(freq_subdir, 'metadata')
-        if os.path.exists(new_metadatadir):
-            shutil.rmtree(new_metadatadir)
-        shutil.copytree(os.path.join(chdir, 'metadata'), new_metadatadir)
-
-    # Remove empty directories
-    for subdir in subdirs:
-        subdirn = os.path.join(chdir, subdir)
-        try:
-            os.rmdir(subdirn)
-        except:
-            None
-
-    return freqs
-
-
 if __name__ == '__main__':
     import matplotlib
     matplotlib.use('Agg')
@@ -241,14 +171,14 @@ if __name__ == '__main__':
         help='''Channel name of data to analyze. (default: %(default)s)'''
     )
     parser.add_argument(
-        '-f', '--freq_list', dest='freq_list_fname',
+        '-f', '--freq_list', dest='freq_list_fname', default='freq_list.txt',
         help='''Text file with list of tune times in format:
         time (in seconds of each minute): frequency (in MHz), e.g.:
         0:   3
         15:  6
         30:  9
         45:  12
-        (default: None)''',
+        (default: %(default)s)''',
     )    
     parser.add_argument(
         '-l', '--code_length', dest='codelen', type=int, default=10000,
@@ -264,7 +194,11 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-p', '--plot', action='store_true', default=False,
-        help='''Produce plots instead of saving out spectra''',
+        help='''Produce range-doppler plots''',
+    )
+    parser.add_argument(
+        '-q', '--save', action='store_true', default=True,
+        help='''Save out spectra''',
     )
     parser.add_argument(
         '-r', '--nranges', type=int, default=1000,
@@ -286,112 +220,145 @@ if __name__ == '__main__':
     op = parser.parse_args()
 
     op.datadir = os.path.abspath(op.datadir)
+    # join outdir to datadir to allow for relative path, normalize
+    op.outdir = os.path.abspath(op.outdir.format(datadir=op.datadir))
+    if not os.path.isdir(op.outdir):
+        os.makedirs(op.outdir)
+
+    # Define directories 
+    plotdir = os.path.join(op.outdir, '%s/plots' % op.ch)
+    savedir = os.path.join(op.outdir, '%s/spectra' % op.ch)
+
+    #  Delete old if necessary
+    datpath = os.path.join(op.outdir, 'last.dat')
+    if op.delete_old:
+        for root, dirnames, filenames in os.walk(op.outdir):
+            for f in filenames:
+                if f.endswith(('.png', '.pkl', 'last.dat')):
+                    os.remove(os.path.join(root, f))
+
+    # See where we got up to before.
+    data = drf.DigitalRFReader(op.datadir)
+    sr = data.get_properties(op.ch)['samples_per_second']
+    b = data.get_bounds(op.ch)
+    idx = np.array(b[0])
+    if os.path.isfile(datpath):
+        fidx = np.fromfile(datpath, dtype=np.int)
+        if b[0] <= fidx:
+            idx = fidx
+
+    # Get frequency information from freq_list
+    chdir = os.path.join(op.datadir, op.ch)
+    flist = get_freq_list(os.path.join(chdir, op.freq_list_fname))
+    freqs = flist.values()
+    shift_secs = flist.keys()
+    shift_secs = np.array(shift_secs)
+    shift_secs.sort()
+    shift_secs_ext = np.append(shift_secs, shift_secs[:2] + 60)
     
+    # get samplerate from file (used to get timestamp) 
+    srn = data.get_properties(op.ch, sample=idx)['sample_rate_numerator']
+    srd = data.get_properties(op.ch, sample=idx)['sample_rate_denominator']
+    sr = srn / srd
 
     # start processing
     while True:
-        """   find a new way of doing this 
+        # move index forward if we are not on a tune time
+        idx = np.ceil(idx / sr) * sr  # start by putting it on an integer second
+        dtime = datetime.utcfromtimestamp(idx / sr)
+        diff = shift_secs_ext - dtime.second
+        diff[diff >= 60] -= 60
+        min_diff = diff[diff >= 0].min()
+        idx += min_diff * np.float(sr)
+        dtime = datetime.utcfromtimestamp(idx / sr)
+        diff = shift_secs - dtime.second
+    
+        idx = int(idx)
+
+        # figure out analysis length based on frequency shifting
+        shiftind = np.where(diff == 0)[0][0]
+        nextind = shiftind + 1
+        op.anlen = int((shift_secs_ext[nextind] - shift_secs[shiftind]) * sr)
+        tune_freq = flist[shift_secs[shiftind]]
+
+        # Wait if we don't have enough data
         if idx + op.anlen > b[1]:
             print('waiting for more data, sleeping.')
             time.sleep(op.anlen / sr)
-            b = d.get_bounds(op.ch)
+            b = data.get_bounds(op.ch)
             continue
-        """
 
-        # Call sort_freqs
-        chdir = os.path.join(op.datadir, op.ch)
-        fdir = '_freqs'
-        freqs = sort_freqs(chdir, fdir, op.freq_list_fname)
+        # Process
+        try:
+            delay = 7650  # Should be 7650 for zero range offset
+            res = analyze_prc(
+                data, channel=op.ch, idx0=idx + delay, an_len=op.anlen, clen=op.codelen,
+                station=op.station, Nranges=op.nranges,
+                cache=True, rfi_rem=True,
+            )
 
-        # Loop over freqs
-        for freq in freqs:
-            freq = str(freq)
-            tldir = os.path.join(chdir, fdir)
-            freqdir = os.path.join(tldir, freq)
-            print('Processing %s' % freqdir)
+            M = 10.0 * np.log10((np.abs(res['spec'])))
+            # calculate plot parameters
+            rg = 3e8 * np.arange(op.nranges) / sr / 1e3
+            ndop = op.anlen / op.codelen
+            dop_hz = np.fft.fftshift(np.fft.fftfreq(int(ndop), d=op.codelen / sr))
+            dop_vel = (dop_hz / (tune_freq * 1E6)) * 3E8
 
-            # join outdir to datadir to allow for relative path, normalize
-            op.outdir = os.path.abspath(op.outdir.format(datadir=freqdir))
-            if not os.path.isdir(op.outdir):
-                os.makedirs(op.outdir)
-            datpath = os.path.join(op.outdir, 'last.dat')
-            
-            # Load data
-            data = drf.DigitalRFReader(tldir)
-            sr = data.get_properties(freq)['samples_per_second']
-            b = data.get_bounds(freq)
-            idx = np.array(b[0])
-            if os.path.isfile(datpath):
-                fidx = np.fromfile(datpath, dtype=np.int)
-                if b[0] <= fidx:
-                    idx = fidx
+            maxind = np.unravel_index(M.argmax(), M.shape)
+            print('%i   Freq: %02.2f: Max. value: %02.2f dB at %2.1f m/s, %2.1f km'\
+                 % (idx, tune_freq, M.max(), dop_vel[maxind[0]], rg[maxind[1]]))
 
-            try:
-                os.makedirs(os.path.join(freqdir, 'spectra'))
-            except:
-                None
-
-            # Process
-            try:
-                delay = 7650  # Should be 7650 for zero range offset
-                pdb.set_trace()
-                res = analyze_prc(
-                    data, channel=op.ch, idx0=idx + delay, an_len=op.anlen, clen=op.codelen,
-                    station=op.station, Nranges=op.nranges,
-                    cache=True, rfi_rem=False,
-                )
+            if op.plot:
                 plt.clf()
+                plt.pcolormesh(dop_vel, rg, np.transpose(M), vmin=(np.median(M) - 1.0),)# vmax=10.)
+                plt.ylabel('range (km)')
+                plt.xlabel('Doppler velocity (m/s)')
+                clb = plt.colorbar()
+                clb.set_label('Intensity / dB')
 
-                M = 10.0 * np.log10((np.abs(res['spec'])))
+                timestr = dtime.strftime('%Y-%m-%d %H:%M:%S')
+                plt.title('%s %f MHz' % (timestr, tune_freq))
+                dirn = os.path.join(plotdir, dtime.strftime('%Y%m%d'))
+                try:
+                    os.makedirs(dirn)
+                except:
+                    None
+                plt.savefig(os.path.join(
+                    plotdir, 'spec-{0:06d}.png'.format(int(np.uint64(idx / sr))),
+                ))
+                print('%s' % timestr)
 
-                # calculate plot parameters
-                tx_freq = row['freq'] * 1E6
-                sample_rate = sr
-                code_len_bauds = op.codelen
-                freq_dwell_time = row['anlen'] / sample_rate
-
-                maxind = np.unravel_index(M.argmax(), M.shape)
-                print('Freq: %2.2f, Shape of M: %i x %i (Doppler x Range): Max. value: %2.2f dB at %i, %i'\
-                     % (row['freq'], M.shape[0], M.shape[1], M.max(), maxind[0], maxind[1]))
-
-                # Range characteristics (y-axis)
-                sample_len_secs = 1 / sample_rate
-                rangegate = sample_len_secs * 3e8
-                ranges = np.arange(op.nranges) * rangegate
-
-                # Doppler characteristics (x-axis)
-                code_len_secs = sample_len_secs * code_len_bauds
-                tx_wlen = 3E8 / tx_freq
-                doppler_bandwidth_hz = sample_rate / code_len_bauds
-                doppler_res_hz = doppler_bandwidth_hz / (freq_dwell_time / code_len_secs)
-                doppler_res_ms = doppler_res_hz * tx_wlen / 2
-                vels = (np.arange(M.shape[0]) - M.shape[0] / 2) * doppler_res_ms
-               
-                if op.plot: 
-                    plt.clf()
-                    plt.pcolormesh(vels, ranges / 1E3, np.transpose(M), vmin=(np.median(M) - 1.0),)# vmax=10.)
-                    plt.ylabel('range (km)')
-                    plt.xlabel('Doppler velocity (m/s)')
-                    clb = plt.colorbar()
-                    clb.set_label('Intensity / dB')
-
-                    timestr = time.strftime('%Y-%m-%d %H:%M:%S')
-                    plt.title('%s %f MHz' % (timestr, row['freq']))
-                    plt.savefig(os.path.join(
-                        op.outdir, 'spec-{0:06d}.png'.format(int(np.uint64(idx / sr))),
-                    ))
-                    print('%s' % timestr)
-
-                else:
-                    pdb.set_trace()
-                    M[M < op.threshold] = 0
-                    M = csparse(M)
-                    spec_fname_t = time.strftime(spec_fname)
-                    with open(spec_fname_t, 'wb') as f:
+            if op.save:
+                # Save the strong signals
+                sigind = M > op.threshold 
+                if np.any(sigind):
+                    M[np.invert(sigind)] = 0
+                    
+                    M = csr_matrix(M)
+                    dirn = os.path.join(savedir, dtime.strftime('%Y%m%d'))
+                    try:
+                        os.makedirs(dirn)
+                    except:
+                        None
+                    spec_fname_t = dtime.strftime('%2.2fMHz' % tune_freq + '_%H%M%S.%f.pkl')
+                    out_fname = os.path.join(dirn, spec_fname_t) 
+                    with open(out_fname, 'wb') as f:
+                        print('Saving to %s' % out_fname)
                         pickle.dump(M, f)
+    
+                # Make metadata file
+                try:
+                    metadata = {
+                        'Doppler (m/s)': dop_vel,
+                        'Range (km)': rg,
+                    }
+                    with open(os.path.join(savedir, 'meta_%2.2f.pkl' % tune_freq), 'wb') as f:
+                        pickle.dump(metadata, f)
+                except:
+                    None
 
-            except IOError:
-                print('IOError, skipping.')
-            print('%d' % (idx))
-            idx = idx + op.anlen
-            idx.tofile(datpath)
+
+        except IOError:
+            print('IOError, skipping.')
+        idx = idx + op.anlen
+        np.array(idx).tofile(datpath)
