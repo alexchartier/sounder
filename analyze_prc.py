@@ -340,7 +340,7 @@ if __name__ == '__main__':
                         os.makedirs(dirn)
                     except:
                         None
-                    spec_fname_t = dtime.strftime('%2.2fMHz' % tune_freq + '_%H%M%S.%f.pkl')
+                    spec_fname_t = dtime.strftime('%2.2f_MHz' % tune_freq + '_%H%M%S_.pkl')
                     out_fname = os.path.join(dirn, spec_fname_t) 
                     with open(out_fname, 'wb') as f:
                         print('Saving to %s' % out_fname)
@@ -349,10 +349,10 @@ if __name__ == '__main__':
                 # Make metadata file
                 try:
                     metadata = {
-                        'Doppler (m/s)': dop_vel,
-                        'Range (km)': rg,
+                        'doppler': dop_vel,
+                        'range': rg,
                     }
-                    with open(os.path.join(savedir, 'meta_%2.2f.pkl' % tune_freq), 'wb') as f:
+                    with open(os.path.join(savedir, 'meta_%2.2f_.pkl' % tune_freq), 'wb') as f:
                         pickle.dump(metadata, f)
                 except:
                     None

@@ -2,15 +2,77 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pdb
 import pickle
+import os
 import datetime as dt
+import glob
+import pandas
 import matplotlib
 
 """
 Plot multi-frequency returns as a function of altitude and time
 """
-time = dt.datetime(2018, 12, 5)
-in_fname = time.strftime('/data/chirp_boat/spectra/spectra_%Y%m%d.pkl')
-cutoff = 7.0
+def main():
+
+    indir = '/data/chirp_notx/prc_analysis/hfrx/spectra/'
+    save_daily_files(indir)
+    plot()
+
+
+def save_daily_files(indir):
+    keys = 'time', 'range', 'doppler', 'pwr'
+    for root, dn, filenames in os.walk(indir):
+        # Get metadata first
+        metafiles = glob.glob(os.path.join(root, 'meta*.pkl'))
+        if len(metafiles) > 0:
+            meta = {}
+            for fname in metafiles:
+                freq = float(fname.split('/')[-1].split('_')[1])
+                with open(fname, 'rb') as f:
+                    meta[freq] = pickle.load(f)
+
+            # Set up the data holder here 
+            data = {}  
+            for freq in meta.keys():
+                data[freq] = {}
+                for key in keys:
+                    data[freq][key] = []
+                
+        try:
+            day = dt.datetime.strptime(root.split('/')[-1], '%Y%m%d')
+            for fn in filenames:
+                # Get frequencies and times from the filename
+                freq = float(fn.split('_')[0]) 
+                tod = dt.datetime.strptime(fn.split('_')[2], '%H%M%S')
+                data[freq]['time'].append(
+                    day + dt.timedelta(hours=tod.hour, 
+                    minutes=tod.minute, seconds=tod.second)
+                )
+                # load range, doppler and intensity
+                with open(os.path.join(root, fn), 'rb') as f:
+                    spec = pickle.load(f)
+                dopind, rgind = spec.nonzero()
+                data[freq]['doppler'].append(meta[freq]['Doppler (m/s)'][dopind])
+                data[freq]['range'].append(meta[freq]['Range (km)'][rgind])
+                '''
+                data[freq]['doppler'].append(meta[freq]['doppler'][dopind])
+                data[freq]['range'].append(meta[freq]['range'][rgind])
+                pdb.set_trace()
+                '''
+                sparr = spec.toarray()
+                data[freq]['pwr'].append(np.array(sparr[sparr > 0]))
+
+            # Save daily files
+            outdir = os.path.join('/'.join(root.split('/')[:-2]), 'daily')
+            try:
+                os.makedirs(outdir)
+            except:
+                None
+            out_fname = os.path.join(outdir, day.strftime('%Y%b%d_analysis.pkl')) 
+            with open(out_fname, 'wb') as f:
+                print('Writing to %s' % out_fname)
+                pickle.dump(data, f)
+        except:
+            None
 
 with open(in_fname, 'rb') as f:
     spectra = pickle.load(f)
