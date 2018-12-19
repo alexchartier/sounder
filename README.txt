@@ -10,19 +10,11 @@ python prc_analyze.py /data/prc -c hfrx -l 10000 -s 0
 
 
 # Stepped example using ./sounder
-cd waveforms; python create_waveform.py -l 10000 -b 20 -s 0 -f; cd ..
-python tx_chirp.py -m 192.168.10.3 -d "A:A" -f freq_lists/freq_list_FCC.txt -G 1 -g 0 -r 5E5 waveforms/code-l10000-b10-000000f.bin
-python odin.py -m 192.168.10.13 -d "A:A" -c hfrx --type sc16 -f freq_lists/freq_list_FCC.txt -r 5E5 -i 10 /data/chirp
-python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
+cd waveforms; python create_waveform.py -l 1000 -b 10 -s 0 -f; cd ..
+python tx_chirp.py -m 192.168.10.3 -d "A:A" -f freq_lists/freq_list.txt -G 1 -g 0 -r 5E5 waveforms/code-l1000-b10-000000f.bin
+python odin.py -m 192.168.10.13 -d "A:A" -c hfrx -f freq_lists/freq_list.txt -r 5E5 -i 10 /data/chirp
+python analyze_prc.py /data/chirp -c hfrx -l 1000 -s 0 
 
-
-################################
-######        TO DO       ######
-################################
-
-1. Create loopback calibration code
-2. Make sure each day freq_stepper.log goes into a different day file
-3. Store the Ms from analyze_chirp and stack them up to make ionograms
 
 
 ################################
@@ -54,13 +46,20 @@ python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
 
     
 # Hardware instructions:
-	Disconnect all GPSdos if using octoclock - check jumper settings too
-	Get a better GPS antenna for the Tx side
-	Go to  10000 baud, 100 kHz code to remove range ambiguity. 
 
 # If no dots from the receiver end (e.g nothing gets recorded):
 	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
     recompile and install gnuradio
+
+	1. Locate the receive antenna at least 100 metres from any other electronics (esp. air conditioning, transformers etc.)
+	2. Test all cables for continuity with one end bridged, or with a cable tester
+	3. Locate the GPS receiver somewhere that it can see satellites
+
+# IP setting:
+    Set ethernet to 192.168.10.whatever and subnet to 255.255.255.0. Don't set the gateway
+    Note that uhd_find_devices should report your device if it's working
+    uhd_usrp_probe should tell you what's on it. 
+    Try uhd_fft in gnuradio/gr_uhd/apps to see what signals are in your area
 	
 
 # Before running the following code:
@@ -83,11 +82,6 @@ python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
             make; sudo make install
 
             pip install --no-binary h5py -I h5py
-
-# Hardware info
-	1. Locate the receive antenna at least 100 metres from any other electronics (esp. air conditioning, transformers etc.)
-	2. Test all cables for continuity with one end bridged, or with a cable tester
-	3. Locate the GPS receiver somewhere that it can see satellites
 
 
 # Automated running
@@ -120,6 +114,8 @@ python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
     
     gr_remez: too much integration and decimation?
     acks: launch time in the past or similar
+    
+    For both of these, try cleaning out the save directory
     
 # Having git save your password:
     git config credential.helper store

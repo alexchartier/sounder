@@ -24,6 +24,7 @@ from fractions import Fraction
 from itertools import chain, cycle, islice, repeat
 from subprocess import call
 from textwrap import TextWrapper, dedent, fill
+import shutil
 
 import numpy as np
 import pytz
@@ -664,6 +665,19 @@ class Thor(object):
         # to launch
         if not os.path.isdir(op.datadir):
             os.makedirs(op.datadir)
+
+        # Copy freq_list into the data directory
+        if op.freq_list_fname:
+            for ch in op.channel_names:
+                chdir = os.path.join(op.datadir,  ch)
+                try:
+                    os.makedirs(chdir)
+                    shutil.copy2(
+                        op.freq_list_fname, 
+                        os.path.join(chdir, 'freq_list.txt')
+                    )
+                except:
+                    None
 
         # get UHD USRP source
         usrp = self._usrp_setup()
