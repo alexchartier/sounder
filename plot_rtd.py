@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.matlib
 import pdb
@@ -7,27 +6,29 @@ import os
 import datetime as dt
 import glob
 import pandas
-import matplotlib
 from argparse import ArgumentParser
 
 
 """
 Plot multi-frequency returns as a function of altitude and time
 """
-def main(op):
-
-    op = save_daily_files(op)
 
 
 def save_daily_files(op):
     # TODO: Add last.dat and delete_old functionality similar to analyze_prc
     # TODO: Store directory info in op structure
 
-
+    op.chdir = os.path.join(op.datadir, os.path.join('prc_analysis', op.ch))
+    print('Processing daily plots in %s' % op.chdir)
     # Set up output dir
-    op.outdir = os.path.join('/'.join(op.indir.split('/')[:-1]), 'daily')
+    op.outdir = os.path.join('/'.join(op.chdir.split('/')[:-1]), 'daily/data/')
+    op.plotdir = os.path.join('/'.join(op.chdir.split('/')[:-1]), 'daily/plots/')
     try:
         os.makedirs(op.outdir)
+    except:
+        None
+    try:
+        os.makedirs(op.plotdir)
     except:
         None
 
@@ -50,7 +51,7 @@ def save_daily_files(op):
         startday = dt.datetime(1900, 1, 1)
 
     keys = 'time', 'range', 'doppler', 'pwr'
-    for root, dn, filenames in os.walk(op.indir):
+    for root, dn, filenames in os.walk(op.chdir):
         # Get metadata first
         metafiles = glob.glob(os.path.join(root, 'meta*.pkl'))
         if len(metafiles) > 0:
@@ -69,7 +70,7 @@ def save_daily_files(op):
                 
         try:
             day = dt.datetime.strptime(root.split('/')[-1], '%Y%m%d')
-            if day < startday:
+            if day <= startday:
                 continue
 
             for fn in filenames:
@@ -101,7 +102,7 @@ def save_daily_files(op):
                 print('Writing to %s' % out_fname)
                 pickle.dump(data, f)
 
-            if op.plot:
+            if not op.noplot:
                 plot(out_fname)
 
             # store what day we got up to
@@ -116,18 +117,15 @@ def plot(in_fname, plot_fname=None):
     with open(in_fname, 'rb') as f:
         data = pickle.load(f)
     params = {
-        "ytick.color" : "w",
-        "xtick.color" : "w",
-        "axes.labelcolor" : "w",
-        "axes.edgecolor" : "w",
-        'font.size': 16,
+        'font.size': 18,
     }
     plt.rcParams.update(params)
      
     for freq, spectra in data.items():
         spectra['time'] = np.array(spectra['time'])
+
         # Set plot limits, labels
-        fig, ax = plt.subplots(figsize=(10,10))
+        fig, ax = plt.subplots(figsize=(14, 10))
         ax.set_xlim([spectra['time'].min(), spectra['time'].max()])
         rmax = np.array([r.max() for r in spectra['range']])
         ax.set_ylim([0, rmax.max()])
@@ -137,7 +135,6 @@ def plot(in_fname, plot_fname=None):
 
         # Set colours
         ax.set_facecolor('black')
-        fig.patch.set_facecolor('black')
         normalize = matplotlib.colors.Normalize(vmin=-500, vmax=500)
         cmap = matplotlib.cm.get_cmap('seismic')
 
@@ -148,31 +145,46 @@ def plot(in_fname, plot_fname=None):
             doppler = spectra['doppler'][timeind]
             colors = [cmap(normalize(value)) for value in doppler]
             tr = np.matlib.repmat(t, 1, ranges.shape[0])
-            cax = ax.scatter(tr, ranges, s=5, c=doppler, cmap=cmap, norm=normalize)
+            cax = ax.scatter(tr, ranges, s=40, c=doppler, cmap=cmap, norm=normalize)
 
         cbar = fig.colorbar(cax)
         cbar.set_label('Doppler velocity (m/s)')
-        plt.title('%2.2f MHz, %s' % (freq, t.strftime('%Y %b %d')), color='w')
+        myFmt = mdates.DateFormatter('%H:%M')
+        ax.xaxis.set_major_formatter(myFmt)
+        plt.title('%2.2f MHz, %s' % (freq, t.strftime('%Y %b %d'))) 
+        figdir = os.path.join(
+            op.plotdir, t.strftime('rtd_%Y%b%d') + '_%2.2f_MHz.png' % freq,
+        )
+        plt.savefig(figdir)
+        print('Saving to %s'% figdir)
 
-        plt.show()
 
 if __name__ == '__main__':
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+
     desc = 'daily plots of range-time-doppler at each frequency in the specified directory'
     parser = ArgumentParser(description=desc)
 
     parser.add_argument(
-        'indir', help='''Data directory to analyze.''',
+        'datadir', help='''Data directory to analyze.''',
+    )   
+    parser.add_argument(
+        '-c', '--ch', default='hfrx',
+        help='''Channel name of data to analyze. (default: %(default)s)'''
     )   
     parser.add_argument(
         '-x', '--delete_old', action='store_true', default=False,
         help='''Delete existing processed files.''',
     )
     parser.add_argument(
-        '-p', '--plot', action='store_true', default=False,
+        '-np', '--noplot', action='store_true', default=False,
         help='''Produce range-doppler plots''',
     )   
 
     op = parser.parse_args()
-    op.indir = os.path.abspath(op.indir)
+    op.datadir = os.path.abspath(op.datadir)
 
-    main(op)
+    op = save_daily_files(op)
