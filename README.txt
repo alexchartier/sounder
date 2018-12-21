@@ -57,31 +57,40 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
 	3. Locate the GPS receiver somewhere that it can see satellites
 
 # IP setting:
-    Set ethernet to 192.168.10.whatever and subnet to 255.255.255.0. Don't set the gateway
+    Using network settings, set ethernet to 192.168.10.whatever and subnet to 255.255.255.0. Don't set the gateway
     Note that uhd_find_devices should report your device if it's working
     uhd_usrp_probe should tell you what's on it. 
     Try uhd_fft in gnuradio/gr_uhd/apps to see what signals are in your area
 	
-
-# Before running the following code:
-     install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
-     sudo ldconfig
-     Using network manager, set the relevant ethernet port's IP to 192.168.10.X where X is NOT 2 (or the USRP's number)
-        (note ifconfig provides only a temporary fix, but does let you check the IP has been set correctly)
-     Plug in the USRP and run uhd_find_devices to make sure it's visible. 
      In case of firmware upgrade, you have to power-cycle the USRP after upgrading the firmware.
          May also have to downgrade UHD to get it to upgrade
      To change USRP IP address:
             cd /usr/local/lib/uhd/utils
             ./usrp_burn_mb_eeprom --args="ip-addr=192.168.10.2" --values="ip-addr=192.168.10.11"
 
-     When running the code, don't worry about the occasional "failed to lock" from the GPS if the antenna is poorly located
 
-# Install instructions
+
+# Before running the following code:
+    Feeling lucky...
+        sudo add-apt-repository -y ppa:bladerf/bladerf
+        sudo add-apt-repository -y ppa:myriadrf/drivers
+        sudo add-apt-repository -y ppa:myriadrf/gnuradio
+        sudo add-apt-repository -y ppa:gqrx/gqrx-sdr
+        sudo apt-get update
+        sudo apt-get install gqrx     
+
         sudo apt-get install python
-        sudo apt install python-pip
         sudo apt-get install python-tk
-        pip install digital-rf scipy matplotlib==2.2.3
+        sudo apt-get install libhdf5-dev
+        sudo apt-get install python-pip
+        sudo apt-get install vim
+        pip install digital_rf
+        pip install matplotlib==2.2.3
+
+    Not feeling lucky....
+        install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
+        sudo ldconfig
+
 
         
 
