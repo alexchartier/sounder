@@ -76,7 +76,18 @@ python analyze_prc.py /data/chirp -c hfrx -l 1000 -s 0
 
      When running the code, don't worry about the occasional "failed to lock" from the GPS if the antenna is poorly located
 
+# Install instructions
+        sudo apt-get install python
+        sudo apt install python-pip
+        sudo apt-get install python-tk
+        pip install digital-rf scipy matplotlib==2.2.3
+
+        
+
+
      HDF5-specific:
+	sudo apt-get install libhdf5-dev
+     or 
         Install HDF5 from source with prefix /usr
             cd hdf5-1.10.1/; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
             make; sudo make install
