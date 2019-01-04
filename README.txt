@@ -135,13 +135,13 @@ python analyze_prc.py /data/chirp -c hfrx -l 1000 -s 0
     Enter your DMZ unix password.
     You should get verification that that one key was added. You can then log out.
 
-    scp filename davisja1@sd-ssh.jhuapl.edu:/homes/davisja1/
+    scp filename chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/south_pole/
 
 # rsync
 
     crontab -e
     Then, in the crontab, to backup every 10 minutes
-    */10 * * * * rsync -av -e ssh /data/ch0/prc_analysis/ chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/southpole_data/
+    */10 * * * * rsync -av -e ssh /data/ch0/prc_analysis/ chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/south_pole/
 
 ###############################################
 ######## Computer Deployment Checklist ########
