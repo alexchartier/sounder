@@ -14,6 +14,7 @@ cd waveforms; python create_waveform.py -l 1000 -b 10 -s 0 -f; cd ..
 python tx_chirp.py -m 192.168.10.3 -d "A:A" -f freq_lists/freq_list.txt -G 1 -g 0 -r 5E5 waveforms/code-l1000-b10-000000f.bin
 python odin.py -m 192.168.10.13 -d "A:A" -c hfrx -f freq_lists/freq_list.txt -r 5E5 -i 10 /data/chirp
 python analyze_prc.py /data/chirp -c hfrx -l 1000 -s 0 
+python plot_rtd.py /data/chirp_notx/ -c hfrx
 
 
 
@@ -56,27 +57,47 @@ python analyze_prc.py /data/chirp -c hfrx -l 1000 -s 0
 	3. Locate the GPS receiver somewhere that it can see satellites
 
 # IP setting:
-    Set ethernet to 192.168.10.whatever and subnet to 255.255.255.0. Don't set the gateway
+    Using network settings, set ethernet to 192.168.10.whatever and subnet to 255.255.255.0. Don't set the gateway
     Note that uhd_find_devices should report your device if it's working
     uhd_usrp_probe should tell you what's on it. 
     Try uhd_fft in gnuradio/gr_uhd/apps to see what signals are in your area
 	
-
-# Before running the following code:
-     install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
-     sudo ldconfig
-     Using network manager, set the relevant ethernet port's IP to 192.168.10.X where X is NOT 2 (or the USRP's number)
-        (note ifconfig provides only a temporary fix, but does let you check the IP has been set correctly)
-     Plug in the USRP and run uhd_find_devices to make sure it's visible. 
      In case of firmware upgrade, you have to power-cycle the USRP after upgrading the firmware.
          May also have to downgrade UHD to get it to upgrade
      To change USRP IP address:
             cd /usr/local/lib/uhd/utils
             ./usrp_burn_mb_eeprom --args="ip-addr=192.168.10.2" --values="ip-addr=192.168.10.11"
 
-     When running the code, don't worry about the occasional "failed to lock" from the GPS if the antenna is poorly located
+
+
+# Before running the following code:
+    Feeling lucky...
+        sudo add-apt-repository -y ppa:bladerf/bladerf
+        sudo add-apt-repository -y ppa:myriadrf/drivers
+        sudo add-apt-repository -y ppa:myriadrf/gnuradio
+        sudo add-apt-repository -y ppa:gqrx/gqrx-sdr
+        sudo apt-get update
+        sudo apt-get install gqrx     
+
+        sudo apt-get install python
+        sudo apt-get install python-tk
+        sudo apt-get install libhdf5-dev
+        sudo apt-get install python-pip
+        sudo apt-get install vim
+        pip install digital_rf
+        pip install matplotlib==2.2.3
+
+    Not feeling lucky....
+        install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
+        sudo ldconfig
+
+
+        
+
 
      HDF5-specific:
+	sudo apt-get install libhdf5-dev
+     or 
         Install HDF5 from source with prefix /usr
             cd hdf5-1.10.1/; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
             make; sudo make install
