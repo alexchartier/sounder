@@ -121,6 +121,28 @@ python analyze_prc.py /data/chirp -c hfrx -l 1000 -s 0
     git config credential.helper store
     then push/pull and it will save your details
 
+# SSH 
+    sudo apt-get install openssh-server  (make sure it is on the source and target)
+
+    Open a terminal session and run the command “ssh-keygen”
+    Accept default path (note the path because it’s needed below) and hit “Enter”
+    Leave passphrase blank and hit “Enter”
+    Leave passphrase confirmation bland and hit “Enter”
+    Run the command “ssh-copy-id –i /path_from_above/id_rsa.pub 5-2-1@sd-ssh.jhuapl.edu. 
+    From my Mac the exact command is:
+        ssh-copy-id -i /Users/chartat1/.ssh/id_rsa.pub chartat1@sd-ssh.jhuapl.edu
+    You will be asked to accept the RSA key if you haven’t connected to SD-SSH before. Enter “yes”
+    Enter your DMZ unix password.
+    You should get verification that that one key was added. You can then log out.
+
+    scp filename davisja1@sd-ssh.jhuapl.edu:/homes/davisja1/
+
+# rsync
+
+    crontab -e
+    Then, in the crontab, to backup every 10 minutes
+    */10 * * * * rsync -av -e ssh /data/ch0/prc_analysis/ chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/southpole_data/
+
 ###############################################
 ######## Computer Deployment Checklist ########
 ###############################################
