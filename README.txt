@@ -22,7 +22,6 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
 ###### Other Information  ######
 ################################
 
-
 # see the following paper for a description and application of the technique:
 # Vierinen, J., Chau, J. L., Pfeffer, N., Clahsen, M., and Stober, G.,
 # Coded continuous wave meteor radar, Atmos. Meas. Tech., 9, 829-839,
@@ -43,7 +42,6 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
                  c) the code optionally removes RFI by "whitening" the signal
                  d) there is a DSP-related delay in the receiver. 
                     If you get a solid line on zero doppler, try changing the delay in analyze_chirp.py or prc_analyze.py
-    
 
     
 # Hardware instructions:
@@ -61,13 +59,14 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
     Note that uhd_find_devices should report your device if it's working
     uhd_usrp_probe should tell you what's on it. 
     Try uhd_fft in gnuradio/gr_uhd/apps to see what signals are in your area
-	
+
+
+# USRP asks for firmware upgrade	
      In case of firmware upgrade, you have to power-cycle the USRP after upgrading the firmware.
          May also have to downgrade UHD to get it to upgrade
      To change USRP IP address:
             cd /usr/local/lib/uhd/utils
             ./usrp_burn_mb_eeprom --args="ip-addr=192.168.10.2" --values="ip-addr=192.168.10.11"
-
 
 
 # Before running the following code:
@@ -91,6 +90,14 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
         install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
         sudo ldconfig
 
+
+	sudo apt-get install libhdf5-dev
+     or 
+        Install HDF5 from source with prefix /usr
+            cd hdf5-1.10.1/; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
+            make; sudo make install
+
+            pip install --no-binary h5py -I h5py
 
 # Automated running
 # See run_tx. Automated running is achieved by: 
@@ -129,13 +136,41 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
     git config credential.helper store
     then push/pull and it will save your details
 
+# SSH 
+    sudo apt-get install openssh-server  (make sure it is on the source and target)
+
+    Open a terminal session and run the command “ssh-keygen”
+    Accept default path (note the path because it’s needed below) and hit “Enter”
+    Leave passphrase blank and hit “Enter”
+    Leave passphrase confirmation bland and hit “Enter”
+    Run the command “ssh-copy-id –i /path_from_above/id_rsa.pub 5-2-1@sd-ssh.jhuapl.edu. 
+    From my Mac the exact command is:
+        ssh-copy-id -i /Users/chartat1/.ssh/id_rsa.pub chartat1@sd-ssh.jhuapl.edu
+    You will be asked to accept the RSA key if you haven’t connected to SD-SSH before. Enter “yes”
+    Enter your DMZ unix password.
+    You should get verification that that one key was added. You can then log out.
+
+    scp filename chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/south_pole/
+
+
+# Mismatching sample_rate_numerator
+    You have to clear out the data storage directory - it contains files from a different sample-rate experiment
+
+
+
+# rsync
+
+    crontab -e
+    Then, in the crontab, to backup every 10 minutes
+    */10 * * * * rsync -av -e ssh /data/ch0/prc_analysis/ chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/south_pole/
+
 ###############################################
 ######## Computer Deployment Checklist ########
 ###############################################
 
 1. Computer restarts and goes back to operating after a power outage
 2. Can access GitHub
-3. Disk is not filling up
+3. Local disk is not filling up
 4. uhd_find_devices 
 5. External drives mounted correctly
 6. Loopback test (look for signal on gnuradio/gr-uhd/apps/uhd_fft -f 5E6)
