@@ -92,19 +92,6 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
         sudo ldconfig
 
 
-        
-
-
-     HDF5-specific:
-	sudo apt-get install libhdf5-dev
-     or 
-        Install HDF5 from source with prefix /usr
-            cd hdf5-1.10.1/; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
-            make; sudo make install
-
-            pip install --no-binary h5py -I h5py
-
-
 # Automated running
 # See run_tx. Automated running is achieved by: 
     1. Set the computer's BIOS to turn on after power outage 
