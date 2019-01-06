@@ -22,7 +22,6 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
 ###### Other Information  ######
 ################################
 
-
 # see the following paper for a description and application of the technique:
 # Vierinen, J., Chau, J. L., Pfeffer, N., Clahsen, M., and Stober, G.,
 # Coded continuous wave meteor radar, Atmos. Meas. Tech., 9, 829-839,
@@ -43,7 +42,6 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
                  c) the code optionally removes RFI by "whitening" the signal
                  d) there is a DSP-related delay in the receiver. 
                     If you get a solid line on zero doppler, try changing the delay in analyze_chirp.py or prc_analyze.py
-    
 
     
 # Hardware instructions:
@@ -62,7 +60,6 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
     uhd_usrp_probe should tell you what's on it. 
     Try uhd_fft in gnuradio/gr_uhd/apps to see what signals are in your area
 	
-
 # Before running the following code:
      install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
      sudo ldconfig
@@ -83,7 +80,6 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
             make; sudo make install
 
             pip install --no-binary h5py -I h5py
-
 
 # Automated running
 # See run_tx. Automated running is achieved by: 
