@@ -672,6 +672,9 @@ class Thor(object):
                 chdir = os.path.join(op.datadir,  ch)
                 try:
                     os.makedirs(chdir)
+                except:
+                    None
+                try:
                     shutil.copy2(
                         op.freq_list_fname, 
                         os.path.join(chdir, 'freq_list.txt')
