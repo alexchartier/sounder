@@ -1,17 +1,26 @@
-#!/bin/sh
+#!/bin/bash
 # Add the following to crontab -e to run this every minute * * * * * /home/alex/sounder/run_rx >> /home/alex/sounder/run_rx.log &
-echo "Started run_rx_aoa - tail -f /var/log/syslog for more information"
-current_time="`date +%Y%m%d%H%M`";
+#if ! pgrep -x "python" > /dev/null
+echo "Started run_rx - tail -f /var/log/syslog for more information"
+current_time="`date +%Y/%m/%d_%H:%M`";
 
 export sdir=/home/alex/sounder/odin.py 
+export outdir=/data 
+export chan=hfrx_0 
 export freq_list='freq_lists/antarctic_ops.txt'
 export rate=5E5
 export type='sc16'
 
-if ! pgrep -x "python" > /dev/null
-then
-    echo "odin.py not running, launching at ${current_time}"
-    python $sdir -m 192.168.10.12 -d "A:A" -c hfrx_0 --type $type -f $freq_list -r $rate -i 10 /data  &
+
+# Check output directory size as a function of time
+sz1=`df $outdir/$chan |  tail -n1 | awk '{print $3}'`
+sleep 1
+sz2=`df $outdir/$chan |  tail -n1 | awk '{print $3}'`
+
+# Start the receiver code if the directory is not getting bigger
+if [ $sz1 == $sz2 ]; then
+    echo "Directory not getting bigger. Launching odin at ${current_time}"
+    python $sdir -m 192.168.10.13 -d "A:A" -c $chan --type $type -f $freq_list -r $rate -i 10 $outdir 
 else :
     pid="`pgrep -x python`"
     echo "odin.py running at ${current_time} as pid ${pid}"
