@@ -352,8 +352,10 @@ if __name__ == '__main__':
                         'doppler': dop_vel,
                         'range': rg,
                     }
-                    with open(os.path.join(savedir, 'meta_%2.2f_.pkl' % tune_freq), 'wb') as f:
+                    meta_out_fname = os.path.join(savedir, 'meta_%2.2f_.pkl' % tune_freq) 
+                    with open(meta_out_fname, 'wb') as f:
                         pickle.dump(metadata, f)
+                    print('Wrote metadata to %s' % meta_out_fname)
                 except:
                     None
 
