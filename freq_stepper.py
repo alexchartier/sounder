@@ -30,7 +30,7 @@ def step(usrp, op,
          out_fname=None,
          freq_list_fname=None,
          time_source='GPS',
-         timestr='%Y%b%d %H:%M:%S.%f'
+         timestr='%Y/%b/%d %H:%M:%S'
 ):
     """ Step the USRP's oscillator through a list of frequencies """
     if freq_list_fname:
@@ -111,18 +111,20 @@ def step(usrp, op,
 
             usrp.clear_command_time(uhd.ALL_MBOARDS)
             if op.verbose:
-                print('Tuned to %s MHz at intended time %s (sample %i)' % \
+                print('Tuned to %s MHz at %s (sample %i)' % \
                         (str(freq).rjust(4),
                         tune_time.strftime(timestr), 
                         tune_sample, 
                         )
                 )
+                """
                 gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
                 usrptime = drf.util.epoch + timedelta(seconds=usrp.get_time_now().get_real_secs())
                 print('GPS tune time:  %s\nUSRP tune time: %s' %
                     (gpstime.strftime(timestr),
                     usrptime.strftime(timestr))
                 )
+                """
         time.sleep(sleeptime)
 
 
