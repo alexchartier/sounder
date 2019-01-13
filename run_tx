@@ -6,11 +6,12 @@ current_time="`date +%Y/%m/%d_%H:%M`"
 export sdir=/home/alex/sounder/
 export tx=$sdir'tx_chirp.py'
 export freq_list=$sdir'freq_lists/antarctic_ops.txt'
+export flog=$sdir'freq_lists/freqstep.log'
 export waveform=$sdir'waveforms/code-l1000-b10-000000f.bin'
 export rate=5E5
 export mboard='192.168.10.3'
 
-if test `find "run_tx.log" -mmin -0.5`  # NOTE: relies on >= 1 min crontab execution to work
+if test `find "$flog" -mmin -1`  
 then
     pid="`pgrep -x python`"
     echo "tx_chirp.py running at ${current_time} possibly as pid ${pid}"
