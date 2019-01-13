@@ -40,7 +40,7 @@ def step(usrp, op,
 
     print('Starting freq_stepper')
     if out_fname:
-        with open(out_fname, 'a') as f:
+        with open(out_fname, 'w') as f:
             f.write('Tune time (UT)   Freq (MHz)   Tune sample\n')
 
     # Check for GPS lock
