@@ -1,0 +1,267 @@
+Here are some full instructions on installing UHD, GR, gr-osmosdr, GQRX, inspecturm, gr-fosphor  from source
+
+
+
+Create a workarea folder
+
+mkdir -p /home/demo/workarea
+
+
+
+Install Dependencies
+
+Install all the necessary dependencies for the various tools.
+
+sudo apt-get -y install git swig cmake doxygen build-essential libboost-all-dev libtool libusb-1.0-0 libusb-1.0-0-dev libudev-dev libncurses5-dev libfftw3-bin libfftw3-dev libfftw3-doc libcppunit-1.13-0v5 libcppunit-dev libcppunit-doc ncurses-bin cpufrequtils python-numpy python-numpy-doc python-numpy-dbg python-scipy python-docutils qt4-bin-dbg qt4-default qt4-doc libqt4-dev libqt4-dev-bin python-qt4 python-qt4-dbg python-qt4-dev python-qt4-doc python-qt4-doc libqwt6abi1 libfftw3-bin libfftw3-dev libfftw3-doc ncurses-bin libncurses5 libncurses5-dev libncurses5-dbg libfontconfig1-dev libxrender-dev libpulse-dev swig g++ automake autoconf libtool python-dev libfftw3-dev libcppunit-dev libboost-all-dev libusb-dev libusb-1.0-0-dev fort77 libsdl1.2-dev python-wxgtk3.0 git-core libqt4-dev python-numpy ccache python-opengl libgsl-dev python-cheetah python-mako python-lxml doxygen qt4-default qt4-dev-tools libusb-1.0-0-dev libqwt5-qt4-dev libqwtplot3d-qt4-dev pyqt4-dev-tools python-qwt5-qt4 cmake git-core wget libxi-dev gtk2-engines-pixbuf r-base-dev python-tk liborc-0.4-0 liborc-0.4-dev libasound2-dev python-gtk2 libzmq-dev libzmq1 python-requests python-sphinx libcomedi-dev python-zmq tree
+
+
+
+Installing UHD
+
+Build and install UHD version 3.9.6 as follows.
+
+cd /home/demo/workarea
+git clone git://github.com/EttusResearch/uhd.git
+cd uhd/
+git checkout release_003_009_006
+cd host/
+mkdir build
+cd build
+cmake ../
+make -j4
+make test
+sudo make install
+sudo ldconfig
+
+
+
+B-Series Configuration
+
+If you are using a B-series radio (B200, B210, B200mini), then install the UDEV rules for USB devices.
+
+cd /home/demo/workarea/uhd/host/utils
+sudo cp uhd-usrp.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+
+
+Thread Priority
+
+Set the threading priority as follows.
+
+Create the usrp group.
+
+sudo groupadd usrp
+sudo usermod -aG usrp $USER
+
+Append the following line to end of /etc/security/limits.conf file.
+
+@usrp - rtprio  99
+
+Edit the /etc/security/limits.conf file with a text editor, append the line mentioned above, and save the file.
+
+sudo nano /etc/security/limits.conf
+
+Some keyboard short-cuts for the Nano text editor:
+Press CTRL + X    To exit nano
+
+Press Y    To save file
+
+Press ENTER    To confirm
+
+Logout and then log back in, so that the changes can take effect
+
+Once you have logged back in, verify that the chnages are in effect. List the groups to which your user account belongs. The group groups should be listed.
+
+id -a
+
+
+
+Install GNU Radio
+
+Build and install GNU Radio version 3.7.10.1 as follows.
+
+cd /home/demo/workarea
+git clone --recursive https://github.com/gnuradio/gnuradio.git
+cd gnuradio/
+git checkout v3.7.10.1
+mkdir build && cd build
+cmake ../
+make -j4
+sudo make install
+sudo ldconfig
+
+
+
+gr-osmosdr
+
+Build and install the gr-osmosdr OOT as follows. While this OOT is not directly needed, GQRX and gr-rds require it, so we'll install it.
+
+cd /home/demo/workarea
+git clone git://git.osmocom.org/gr-osmosdr
+cd gr-osmosdr
+mkdir build && cd build
+cmake ../
+make -j4
+sudo make install
+sudo ldconfig
+
+
+
+GQRX
+
+Build and install GQRX version 2.6 as follows.
+
+There are some additional dependencies, mostly for Qt5, that we must first install.
+
+sudo apt-get install qt5-default qttools5-dev-tools libqt5svg5 libqt5svg5-dev
+
+Now we can build and install GQRX itself.
+
+cd /home/demo/workarea
+git clone https://github.com/csete/gqrx.git
+cd gqrx
+git checkout v2.6
+mkdir build && cd build
+qmake ..
+make -j4
+sudo make install
+sudo ldconfig
+
+
+
+gr-rds
+
+Build and install the gr-rds OOT as follows.
+
+There are some additional dependencies that we must first install.
+
+sudo apt-get install cmake libboost-all-dev liblog4cpp5-dev swig
+
+Now we can build and install gr-rds itself.
+
+cd /home/demo/workarea
+https://github.com/bastibl/gr-rds.git
+cd gr-rds/
+mkdir build && cd build
+cmake ../
+make -j4
+sudo make install
+sudo ldconfig
+
+
+
+Inspectrum
+
+Build and install Inspectrum as follows.
+
+There are some additional dependencies that we must first install.
+
+sudo apt-get install qt5-default libfftw3-dev cmake pkg-config
+
+liquid-dsp
+
+We also need to install liquid-dsp
+
+cd /home/demo/workarea
+git clone git://github.com/jgaeddert/liquid-dsp.git
+cd liquid-dsp
+./bootstrap.sh
+
+Ubuntu 16.04 requires some additional ./configure flags
+
+CFLAGS="-march=native" ./configure --enable-fftoverride
+
+Build and install liquid-dsp as follows.
+
+make -j4
+sudo make install
+sudo ldconfig
+
+Now we can build and install Inspectrum itself.
+
+cd /home/demo/workarea
+git clone https://github.com/miek/inspectrum.git
+cd inspectrum
+mkdir build
+cd build
+cmake ..
+make -j4
+sudo make install
+sudo ldconfig
+
+
+
+gr-fosphor
+
+Build and install the gr-foshpor OOT as follows.
+
+There are numerous dependencies that we must first install.
+
+sudo apt-get install cmake xorg-dev libglu1-mesa-dev opencl-headers ocl-icd-opencl-dev clinfo alien
+
+GLFW3
+
+We next need to build and install GLFW3.
+
+cd /home/demo/workarea
+git clone https://github.com/glfw/glfw
+cd glfw
+mkdir build
+cd build
+cmake ../ -DBUILD_SHARED_LIBS=true
+make
+sudo make install
+sudo ldconfig
+
+Intel OpenCL
+
+We next need to install Intel OpenCL run-time library. We do not build this from source code. We install from a binary.
+
+Create tmp working directory
+
+mkdir $HOME/tmp
+cd $HOME/tmp
+
+Get the binary for the Intel OpenCL run-time, either from the workshop materials, or from Intel's website.
+
+cp /home/demo/workarea/ettus_workshop/files/opencl_runtime_14.2_x64_4.5.0.8.tgz .
+
+or
+
+wget http://registrationcenter.intel.com/irc_nas/4181/opencl_runtime_14.2_x64_4.5.0.8.tgz
+
+Install Intel OpenCL Runtime
+
+tar xvf opencl_runtime_14.2_x64_4.5.0.8.tgz
+cd pset_opencl_runtime_14.1_x64_4.5.0.8/rpm
+
+alien --to-tgz opencl-1.2-base-pset-4.5.0.8-1.noarch.rpm
+tar xvf opencl-1.2-base-4.5.0.8.tgz
+sudo mv opt/intel /opt
+rm -rf opt
+
+alien --to-tgz opencl-1.2-intel-cpu-4.5.0.8-1.x86_64.rpm
+tar xvf opencl-1.2-intel-cpu-4.5.0.8.tgz
+
+sudo mkdir -p /etc/OpenCL/vendors
+
+sudo mv opt/intel/opencl-1.2-4.5.0.8/etc/intel64.icd /etc/OpenCL/vendors/
+
+sudo mkdir -p /opt/intel/opencl-1.2-4.5.0.8/lib64/
+
+sudo mv opt/intel/opencl-1.2-4.5.0.8/lib64/* /opt/intel/opencl-1.2-4.5.0.8/lib64/
+rm -rf opt
+
+Now we can build and install gr-fosphor itself.
+
+cd /home/user/workarea
+git clone git://git.osmocom.org/gr-fosphor
+cd gr-fosphor
+mkdir build
+cd build
+cmake ..
+make -j4
+sudo make install
+sudo ldconfig

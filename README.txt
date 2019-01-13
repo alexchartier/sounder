@@ -91,7 +91,6 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
         sudo ldconfig
 
 
-     HDF5-specific:
 	sudo apt-get install libhdf5-dev
      or 
         Install HDF5 from source with prefix /usr
