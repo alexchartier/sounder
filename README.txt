@@ -114,10 +114,13 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
     Follow README instructions in there - note I did not need the modprobe usbnet command
 
 # Attaching an external hard drive automatically:
-    sudo blkid
-    Add the following to /etc/fstab (with correct UUID from blkid /dev/sdb*):
-        # dev/sdb2
-        UUID=9e641d59-7d0f-448a-b941-6da1dc3f2bbc /data           ext4 nofail,auto,noatime,rw,user 0 0
+    Launch Disks
+    Select external drive, click gears icon
+    edit mount options
+    Automatic off
+    mount at startup, select mountpt
+
+    (may also try sudo blkid, vi /etc/fstab)
 
 # Receiver problems (no dots)
     The following error is fatal and needs to be fixed for the receiver to work

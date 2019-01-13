@@ -15,8 +15,6 @@ Plot multi-frequency returns as a function of altitude and time
 
 
 def save_daily_files(op):
-    # TODO: Add last.dat and delete_old functionality similar to analyze_prc
-    # TODO: Store directory info in op structure
 
     op.chdir = os.path.join(op.datadir, os.path.join('prc_analysis', op.ch))
     print('Processing daily plots in %s' % op.chdir)

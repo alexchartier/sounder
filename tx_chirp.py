@@ -571,7 +571,11 @@ class Tx(object):
         fg.start()
 
         # Step the USRP through a list of frequencies
-        freq_stepper.step(usrp, op, freq_list_fname=op.freq_list_fname) 
+        freq_stepper.step(
+            usrp, op, 
+            freq_list_fname=op.freq_list_fname,
+            out_fname='freqstep.log',
+        ) 
 
         # wait until flowgraph stops
         try:

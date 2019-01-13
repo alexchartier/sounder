@@ -7,6 +7,7 @@ export sdir=/home/alex/sounder/analyze_prc.py
 export outdir=/data 
 export chan=hfrx_0 
 export codelen=1000 
+export threshold=0 
 
 # Check output directory size as a function of time
 andir=$outdir/prc_analysis/$chan
@@ -22,8 +23,8 @@ fi
 
 # Start the receiver code if the directory is not getting bigger
 if [ $sz1 == $sz2 ]; then
-    echo "$andir not getting bigger. Launching odin at ${current_time}"
-    python $sdir $outdir -c $chan -l $codelen -s 0
+    echo "$andir not getting bigger. Launching $sdir at ${current_time}"
+    python $sdir $outdir -c $chan -l $codelen -s 0 -t $threshold
 else
     echo "prc_analysis already running"
 fi
