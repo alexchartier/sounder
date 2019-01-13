@@ -39,9 +39,6 @@ def step(usrp, op,
         freq_list = set_freq_list()
 
     print('Starting freq_stepper')
-    if out_fname:
-        with open(out_fname, 'w') as f:
-            f.write('Tune time (UT)   Freq (MHz)   Tune sample\n')
 
     # Check for GPS lock
     while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
@@ -92,7 +89,8 @@ def step(usrp, op,
             # Optionally write out the shift samples of each frequency
             tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
             if out_fname:
-                with open(tune_time.strftime(out_fname), 'a') as f:
+                # Change to 'a' to append
+                with open(tune_time.strftime(out_fname), 'w') as f:
                     f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), \
                             str(freq).rjust(4), tune_sample))
           
