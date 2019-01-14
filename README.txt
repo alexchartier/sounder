@@ -161,12 +161,15 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
     You have to clear out the data storage directory - it contains files from a different sample-rate experiment
 
 
-
 # rsync
 
     crontab -e
     Then, in the crontab, to backup every 10 minutes
     */10 * * * * rsync -av -e ssh /data/ch0/prc_analysis/ chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/south_pole/
+
+# how to rename a computer
+sudo vi /etc/hostname
+sudo vi /etc/hosts
 
 ###############################################
 ######## Computer Deployment Checklist ########

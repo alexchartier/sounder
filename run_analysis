@@ -9,23 +9,13 @@ export chan=hfrx_0
 export codelen=1000 
 export threshold=0 
 
-# Check output directory size as a function of time
-andir=$outdir/prc_analysis/$chan
-
-if [ -d "$andir" ]; then
-    sz1=`df $andir |  tail -n1 | awk '{print $3}'`
-    sleep 10
-    sz2=`df $andir |  tail -n1 | awk '{print $3}'`
+# Start the analysis code if last.dat has not changed recently
+datpath=$outdir/prc_analysis/$chan/last.dat
+if test `find "$datpath" -mmin -1`
+then
+    echo "prc_analysis already running - $datpath changing"
 else
-    sz1="1"
-    sz2="1"
-fi
-
-# Start the receiver code if the directory is not getting bigger
-if [ $sz1 == $sz2 ]; then
-    echo "$andir not getting bigger. Launching $sdir at ${current_time}"
+    echo "$datpath not changing or not found. Launching $sdir at ${current_time}"
     python $sdir $outdir -c $chan -l $codelen -s 0 -t $threshold
-else
-    echo "prc_analysis already running"
 fi
 exit 0

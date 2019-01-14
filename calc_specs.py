@@ -15,9 +15,8 @@ tx_freq = 33E6
 code_len_bauds = 1000  # (-l)
 sample_rate = 5E4
 
-freq_dwell_time = 4   # for chirpsounder the radar sits on a specified frequency until it moves to the next one
-freq_list = np.array([2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5,  6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 12, 13, 14, 16, 18])
-freq_list = freq_list[::2]
+freq_dwell_time = 5   # for chirpsounder the radar sits on a specified frequency until it moves to the next one
+freq_list = np.array([2, 3.2, 4.4, 5.6, 6.8, 8., 9.2, 10.4, 11.6, 12.8, 14., 15.2])
 freq_list *= 1E6
 
 # Standard stuff
