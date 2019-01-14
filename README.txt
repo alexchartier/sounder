@@ -47,7 +47,8 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
 # Hardware instructions:
 
 # If no dots from the receiver end (e.g nothing gets recorded):
-	in /home/alex/gnuradio/gr-uhd/lib/gr_uhd_usrp_source.cc, comment out line 115: _tag_now = true
+    (or I think if sample is in the past)
+	in /home/alex/gnuradio/gr-uhd/lib/usrp_source_impl.cc, comment out line 115: _tag_now = true
     recompile and install gnuradio
 
 	1. Locate the receive antenna at least 100 metres from any other electronics (esp. air conditioning, transformers etc.)
@@ -98,6 +99,16 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
             make; sudo make install
 
             pip install --no-binary h5py -I h5py
+
+    # UHD
+        cd <uhd-repo-path>/host
+        mkdir build
+        cd build
+        cmake -DCMAKE_INSTALL_PREFIX=/opt/uhd ../
+        make -j4
+        make test
+        sudo make install
+        sudo ldconfig
 
 # Automated running
 # See run_tx. Automated running is achieved by: 
