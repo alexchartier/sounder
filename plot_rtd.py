@@ -5,7 +5,8 @@ import pickle
 import os
 import datetime as dt
 import glob
-import pandas
+import matplotlib.dates as mdates
+import matplotlib.colors
 from argparse import ArgumentParser
 
 
@@ -15,8 +16,6 @@ Plot multi-frequency returns as a function of altitude and time
 
 
 def save_daily_files(op):
-    # TODO: Add last.dat and delete_old functionality similar to analyze_prc
-    # TODO: Store directory info in op structure
 
     op.chdir = os.path.join(op.datadir, os.path.join('prc_analysis', op.ch))
     print('Processing daily plots in %s' % op.chdir)
@@ -51,7 +50,7 @@ def save_daily_files(op):
         startday = dt.datetime(1900, 1, 1)
 
     keys = 'time', 'range', 'doppler', 'pwr'
-    for root, dn, filenames in os.walk(op.chdir):
+    for root, dn, filenames in os.walk(os.path.join(op.chdir, 'spectra')):
         # Get metadata first
         metafiles = glob.glob(os.path.join(root, 'meta*.pkl'))
         if len(metafiles) > 0:
@@ -63,38 +62,38 @@ def save_daily_files(op):
 
             # Set up the data holder here 
             data = {}  
-            for freq in meta.keys():
+            for freq, vals in meta.items():
                 data[freq] = {}
-                for key in keys:
-                    data[freq][key] = []
-                
-        try:
-            day = dt.datetime.strptime(root.split('/')[-1], '%Y%m%d')
+                data[freq]['time'] = []
+                data[freq]['range'] = vals['range']
+                data[freq]['doppler'] = vals['doppler']
+        #try:
+        for dirn in dn:
+            day = dt.datetime.strptime(dirn, '%Y%m%d')
             if day <= startday:
                 continue
 
-            for fn in filenames:
+            daydir = os.path.join(root, dirn)
+            for fn in os.listdir(daydir):
                 # Get frequencies and times from the filename
                 freq = float(fn.split('_')[0]) 
                 tod = dt.datetime.strptime(fn.split('_')[2], '%H%M%S')
                 data[freq]['time'].append(
-                    day + dt.timedelta(hours=tod.hour, 
-                    minutes=tod.minute, seconds=tod.second)
+                    day + dt.timedelta(
+                        hours=tod.hour, 
+                        minutes=tod.minute, 
+                        seconds=tod.second,
+                    )
                 )
 
                 # load range, doppler and intensity
-                with open(os.path.join(root, fn), 'rb') as f:
+                with open(os.path.join(daydir, fn), 'rb') as f:
                     spec = pickle.load(f)
-                dopind, rgind = spec.nonzero()
-                data[freq]['doppler'].append(meta[freq]['Doppler (m/s)'][dopind])
-                data[freq]['range'].append(meta[freq]['Range (km)'][rgind])
-                '''
-                data[freq]['doppler'].append(meta[freq]['doppler'][dopind])
-                data[freq]['range'].append(meta[freq]['range'][rgind])
-                pdb.set_trace()
-                '''
-                sparr = spec.toarray()
-                data[freq]['pwr'].append(np.array(sparr[sparr > 0]))
+                for k, v in spec.items():
+                    try:
+                        data[freq][k].append(np.squeeze(v.toarray()))
+                    except:
+                        data[freq][k] = [np.squeeze(v.toarray()),]
 
             # Save daily files
             out_fname = os.path.join(op.outdir, day.strftime('%Y%b%d_analysis.pkl')) 
@@ -108,12 +107,12 @@ def save_daily_files(op):
             # store what day we got up to
             with open(datpath, 'wb') as f:
                 pickle.dump(day, f)
-        except:
-            None
+            #except:
+            #    None
     return op
 
 
-def plot(in_fname, plot_fname=None):
+def plot(in_fname, plot_fname=None, use_int_pwr=False):
     with open(in_fname, 'rb') as f:
         data = pickle.load(f)
     params = {
@@ -122,36 +121,65 @@ def plot(in_fname, plot_fname=None):
     plt.rcParams.update(params)
      
     for freq, spectra in data.items():
-        spectra['time'] = np.array(spectra['time'])
+        for k, v in spectra.items():
+            spectra[k] = np.array(v)
 
+        plt.style.use('dark_background')
+        fig, ax = plt.subplots(figsize=(6, 6))
+
+        # Normalize power
+        if use_int_pwr:
+            A = spectra['int_pwr']
+            A -= 220  # Subtract off noise floor
+            A /= 100  # Guessing high power = 100
+            A[A < 0] = 0 
+            A[A > 1] = 1 
+        else:  # use max power
+            A = spectra['max_pwr_db']
+            # take out the noise floor? Probably ~6 dB
+            A -= 6  
+            A[A < 0] = 0
+            A = 10 ** (A / 10)  # Convert to units of linear power 
+            normfac = 15
+            A /= normfac  # normalize to X linear power units (at least 10 is good)
+            A[A > 1] = 1  # Saturate above normalization
+
+        sortind = np.argsort(spectra['time'])
         # Set plot limits, labels
-        fig, ax = plt.subplots(figsize=(14, 10))
-        ax.set_xlim([spectra['time'].min(), spectra['time'].max()])
         rmax = np.array([r.max() for r in spectra['range']])
-        ax.set_ylim([0, rmax.max()])
         ax.grid()
         ax.set_xlabel('Time (UT)')
-        ax.set_ylabel('Virtual Height (km)')
+        ax.set_ylabel('Virtual Range (km)')
 
-        # Set colours
-        ax.set_facecolor('black')
-        normalize = matplotlib.colors.Normalize(vmin=-500, vmax=500)
-        cmap = matplotlib.cm.get_cmap('seismic')
-
-        # Plot each instant in time
-        for t in spectra['time']:
-            timeind = np.where(spectra['time'] == t)[0][0]
-            ranges = spectra['range'][timeind]
-            doppler = spectra['doppler'][timeind]
-            colors = [cmap(normalize(value)) for value in doppler]
-            tr = np.matlib.repmat(t, 1, ranges.shape[0])
-            cax = ax.scatter(tr, ranges, s=40, c=doppler, cmap=cmap, norm=normalize)
-
-        cbar = fig.colorbar(cax)
-        cbar.set_label('Doppler velocity (m/s)')
+        mdat = [mdates.date2num(d) for d in spectra['time'][sortind]]
         myFmt = mdates.DateFormatter('%H:%M')
         ax.xaxis.set_major_formatter(myFmt)
-        plt.title('%2.2f MHz, %s' % (freq, t.strftime('%Y %b %d'))) 
+        fig.autofmt_xdate()
+      
+        # Set colours
+        vmin = spectra['doppler'].min()
+        vmax = spectra['doppler'].max()
+        # vmin = -50
+        # vmax = 50
+        norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+        sdv = spectra['dop_vel'].copy()[sortind, :]
+        cmap = plt.get_cmap('seismic')
+        img_array = cmap(norm(sdv))
+        img_array[..., 3] = A
+        
+        # Plot 
+        im = ax.imshow(
+            img_array, 
+            cmap=cmap, vmin=vmin, vmax=vmax, 
+            interpolation='none', 
+            aspect='auto',
+            extent=[mdat[0], mdat[-1], 0, rmax.max()], 
+        )
+
+        cbar = plt.colorbar(im)
+        cbar.set_label('Doppler velocity (m/s)')
+        plt.title('%2.1f MHz, %s' % (freq, spectra['time'][0].strftime('%Y/%b/%d'))) 
+
         figdir = os.path.join(
             op.plotdir, t.strftime('rtd_%Y%b%d') + '_%2.2f_MHz.png' % freq,
         )

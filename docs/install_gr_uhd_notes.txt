@@ -1,0 +1,62 @@
+
+
+
+https://kb.ettus.com/Building_and_Installing_the_USRP_Open-Source_Toolchain_(UHD_and_GNU_Radio)_on_Linux
+
+sudo apt-get update
+
+On Ubuntu 17.04 systems, run:
+
+   sudo apt-get -y install git swig cmake doxygen build-essential libboost-all-dev libtool libusb-1.0-0 libusb-1.0-0-dev libudev-dev libncurses5-dev libfftw3-bin libfftw3-dev libfftw3-doc libcppunit-1.13-0v5 libcppunit-dev libcppunit-doc ncurses-bin cpufrequtils python-numpy python-numpy-doc python-numpy-dbg python-scipy python-docutils qt4-bin-dbg qt4-default qt4-doc libqt4-dev libqt4-dev-bin python-qt4 python-qt4-dbg python-qt4-dev python-qt4-doc python-qt4-doc libqwt6abi1 libfftw3-bin libfftw3-dev libfftw3-doc ncurses-bin libncurses5 libncurses5-dev libncurses5-dbg libfontconfig1-dev libxrender-dev libpulse-dev swig g++ automake autoconf libtool python-dev libfftw3-dev libcppunit-dev libboost-all-dev libusb-dev libusb-1.0-0-dev fort77 libsdl1.2-dev python-wxgtk3.0 git-core libqt4-dev python-numpy ccache python-opengl libgsl-dev python-cheetah python-mako python-lxml doxygen qt4-default qt4-dev-tools libusb-1.0-0-dev libqwt5-qt4-dev libqwtplot3d-qt4-dev pyqt4-dev-tools python-qwt5-qt4 cmake git-core wget libxi-dev gtk2-engines-pixbuf r-base-dev python-tk liborc-0.4-0 liborc-0.4-dev libasound2-dev python-gtk2 libzmq3-dev libzmq5 python-requests python-sphinx libcomedi-dev python-zmq
+
+On Ubuntu 16.04 systems, run:
+
+   sudo apt-get -y install git swig cmake doxygen build-essential libboost-all-dev libtool libusb-1.0-0 libusb-1.0-0-dev libudev-dev libncurses5-dev libfftw3-bin libfftw3-dev libfftw3-doc libcppunit-1.13-0v5 libcppunit-dev libcppunit-doc ncurses-bin cpufrequtils python-numpy python-numpy-doc python-numpy-dbg python-scipy python-docutils qt4-bin-dbg qt4-default qt4-doc libqt4-dev libqt4-dev-bin python-qt4 python-qt4-dbg python-qt4-dev python-qt4-doc python-qt4-doc libqwt6abi1 libfftw3-bin libfftw3-dev libfftw3-doc ncurses-bin libncurses5 libncurses5-dev libncurses5-dbg libfontconfig1-dev libxrender-dev libpulse-dev swig g++ automake autoconf libtool python-dev libfftw3-dev libcppunit-dev libboost-all-dev libusb-dev libusb-1.0-0-dev fort77 libsdl1.2-dev python-wxgtk3.0 git-core libqt4-dev python-numpy ccache python-opengl libgsl-dev python-cheetah python-mako python-lxml doxygen qt4-default qt4-dev-tools libusb-1.0-0-dev libqwt5-qt4-dev libqwtplot3d-qt4-dev pyqt4-dev-tools python-qwt5-qt4 cmake git-core wget libxi-dev gtk2-engines-pixbuf r-base-dev python-tk liborc-0.4-0 liborc-0.4-dev libasound2-dev python-gtk2 libzmq-dev libzmq1 python-requests python-sphinx libcomedi-dev python-zmq
+
+
+Then: Update UHD to the latest version
+    sudo apt-get remove uhd-host libuhd003 libuhd-dev
+    sudo apt-add-repository ppa:ettusresearch/uhd
+    sudo apt-get update
+    sudo apt-get install uhd-host libuhd003 libuhd-dev
+
+
+Then: Build gnuradio with the new UHD
+    next three lines possibly unnecessary
+        sudo add-apt-repository ppa:nilarimogard/webupd8
+        sudo apt-get update
+        sudo apt-get install python-wxgtk2.8
+
+    tar -xvzf gnuradio-3.7.11.tar.gz 
+    cd gnuradio-3.7.11; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ..; make; sudo make install
+    
+
+Then: If USRP is not on original IP, or if IP needs changing
+    Set USRP to 192.168.10.2 by holding s2 hardware switch inside box while powercycling 
+    cd /usr/lib/uhd/utils
+    ./usrp_burn_mb_eeprom --values="ip-addr=192.168.10.3"
+
+
+Then:  Set computer to a static IP on the same subnet as the USRP
+    Open Network Manager in System settings. Set ipv4 to (ip, netmask, gateway) 192.168.10.1, 255.255.255.0 192.168.10.0
+    Check uhd_find_devices shows the USRP 
+    if not, try ifconfig. If enp0s25 does not show 192.168.10.1, do sudo ifconfig enp0s25 192.168.10.1 netmask 255.255.255.0
+
+
+Then:
+    Get Juha's chirpsounder code from http://www.sgo.fi/~j/gnu_chirp_sounder/
+    
+    cd gr_juha
+    rm -rf build; mkdir build; cd build; cmake ..; make; sudo make install
+    pip install matplotlib
+    pip install numpy
+    cd ../apps/chirpsounder
+    sudo ldconfig
+    sudo sysctl -w net.core.rmem_max=1000000000
+    
+    edit chirp.py data directory and sounders to listen for
+    mkdir ../../data
+    sudo python chirp.py -o /home/alex/gr-juha/data -m 192.168.10.3  # sudo allows the code to set thread priority
+    (Make sure the antenna is plugged in and switched on)
+    ./chirp_calc.py -d /home/alex/gr-juha/data/2018.04.18/
+

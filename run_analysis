@@ -1,0 +1,21 @@
+#!/bin/bash
+# Add the following to crontab -e to run this every ten minutes */10 * * * * /home/alex/sounder/run_analysis >> /home/alex/sounder/analysis.log &
+echo "Started run_analysis - tail -f /var/log/syslog for more information"
+current_time="`date +%Y/%m/%d_%H:%M`";
+
+export sdir=/home/alex/sounder/analyze_prc.py 
+export outdir=/data 
+export chan=hfrx_0 
+export codelen=1000 
+export threshold=0 
+
+# Start the analysis code if last.dat has not changed recently
+datpath=$outdir/prc_analysis/$chan/last.dat
+if test `find "$datpath" -mmin -1`
+then
+    echo "prc_analysis already running - $datpath changing"
+else
+    echo "$datpath not changing or not found. Launching $sdir at ${current_time}"
+    python $sdir $outdir -c $chan -l $codelen -s 0 -t $threshold
+fi
+exit 0

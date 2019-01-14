@@ -114,7 +114,7 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
 # See run_tx. Automated running is achieved by: 
     1. Set the computer's BIOS to turn on after power outage 
             (press f2 during reboot, then go to power management)
- 	2. Edit /etc/network/interfaces and add the etc_network_interfaces to it
+ 	2. Edit /etc/network/interfaces and add the etc_network_interfaces to it  --- not needed?
 	3. Add the crontab line listed in run_tx to crontab -e
 	4. tail -f run_tx.log
 
@@ -125,9 +125,13 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
     Follow README instructions in there - note I did not need the modprobe usbnet command
 
 # Attaching an external hard drive automatically:
-    Add the following to /etc/fstab (with correct UUID from blkid /dev/sdb)
-    # dev/sdb1
-    UUID=62dd164d-0150-4d07-a0c4-31417a1ab6d9 /data           ext4 nofail,auto,noatime,rw,user 0 0
+    Launch Disks
+    Select external drive, click gears icon
+    edit mount options
+    Automatic off
+    mount at startup, select mountpt
+
+    (may also try sudo blkid, vi /etc/fstab)
 
 # Receiver problems (no dots)
     The following error is fatal and needs to be fixed for the receiver to work
@@ -168,12 +172,15 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
     You have to clear out the data storage directory - it contains files from a different sample-rate experiment
 
 
-
 # rsync
 
     crontab -e
     Then, in the crontab, to backup every 10 minutes
     */10 * * * * rsync -av -e ssh /data/ch0/prc_analysis/ chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/south_pole/
+
+# how to rename a computer
+sudo vi /etc/hostname
+sudo vi /etc/hosts
 
 ###############################################
 ######## Computer Deployment Checklist ########

@@ -30,7 +30,7 @@ def step(usrp, op,
          out_fname=None,
          freq_list_fname=None,
          time_source='GPS',
-         timestr='%Y%b%d %H:%M:%S.%f'
+         timestr='%Y/%b/%d %H:%M:%S'
 ):
     """ Step the USRP's oscillator through a list of frequencies """
     if freq_list_fname:
@@ -39,9 +39,6 @@ def step(usrp, op,
         freq_list = set_freq_list()
 
     print('Starting freq_stepper')
-    if out_fname:
-        with open(out_fname, 'a') as f:
-            f.write('Tune time (UT)   Freq (MHz)   Tune sample\n')
 
     # Check for GPS lock
     while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
@@ -92,7 +89,8 @@ def step(usrp, op,
             # Optionally write out the shift samples of each frequency
             tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
             if out_fname:
-                with open(tune_time.strftime(out_fname), 'a') as f:
+                # Change to 'a' to append
+                with open(tune_time.strftime(out_fname), 'w') as f:
                     f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), \
                             str(freq).rjust(4), tune_sample))
           
@@ -111,18 +109,20 @@ def step(usrp, op,
 
             usrp.clear_command_time(uhd.ALL_MBOARDS)
             if op.verbose:
-                print('Tuned to %s MHz at intended time %s (sample %i)' % \
+                print('Tuned to %s MHz at %s (sample %i)' % \
                         (str(freq).rjust(4),
                         tune_time.strftime(timestr), 
                         tune_sample, 
                         )
                 )
+                """
                 gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
                 usrptime = drf.util.epoch + timedelta(seconds=usrp.get_time_now().get_real_secs())
                 print('GPS tune time:  %s\nUSRP tune time: %s' %
                     (gpstime.strftime(timestr),
                     usrptime.strftime(timestr))
                 )
+                """
         time.sleep(sleeptime)
 
 
