@@ -230,7 +230,7 @@ if __name__ == '__main__':
     savedir = os.path.join(op.outdir, '%s/spectra' % op.ch)
 
     #  Delete old if necessary
-    datpath = os.path.join(op.outdir, 'last.dat')
+    datpath = os.path.join(op.outdir, '%s/last.dat' % op.ch)
     if op.delete_old:
         for root, dirnames, filenames in os.walk(op.outdir):
             for f in filenames:
@@ -260,6 +260,13 @@ if __name__ == '__main__':
     srn = data.get_properties(op.ch, sample=idx)['sample_rate_numerator']
     srd = data.get_properties(op.ch, sample=idx)['sample_rate_denominator']
     sr = srn / srd
+
+    # set up directory
+    dirn = os.path.join(savedir, op.ch)
+    try:
+        os.makedirs(dirn)
+    except:
+        None
 
     # start processing
     while True:
@@ -297,7 +304,8 @@ if __name__ == '__main__':
                 cache=True, rfi_rem=True,
             )
 
-            M = 10.0 * np.log10((np.abs(res['spec'])))
+            pwr = np.abs(res['spec'])
+            M = 10.0 * np.log10(pwr)
             # calculate plot parameters
             rg = 3e8 * np.arange(op.nranges) / sr / 1e3
             ndop = op.anlen / op.codelen
@@ -329,12 +337,22 @@ if __name__ == '__main__':
                 print('%s' % timestr)
 
             if op.save:
+                # Take weighted mean across Doppler bins for each range. 
+                dop_vel_2d = np.tile(dop_vel, (M.shape[1], 1)).T 
+                mean_dop, sum_wts = np.average(dop_vel_2d, weights=pwr, axis=0, returned=True)
+                out = {
+                    'dop_vel': np.squeeze(mean_dop),
+                    'int_pwr': np.squeeze(sum_wts),
+                    'max_pwr_db': M.max(axis=0),
+                }
+
                 # Save the strong signals
-                sigind = M > op.threshold 
+                sigind = np.any(M > op.threshold, axis=0)
                 if np.any(sigind):
-                    M[np.invert(sigind)] = 0
+                    for k, v in out.items():
+                        v[np.invert(sigind)] = 0
+                        out[k] = csr_matrix(v) 
                     
-                    M = csr_matrix(M)
                     dirn = os.path.join(savedir, dtime.strftime('%Y%m%d'))
                     try:
                         os.makedirs(dirn)
@@ -344,7 +362,7 @@ if __name__ == '__main__':
                     out_fname = os.path.join(dirn, spec_fname_t) 
                     with open(out_fname, 'wb') as f:
                         print('Saving to %s' % out_fname)
-                        pickle.dump(M, f)
+                        pickle.dump(out, f)
     
                 # Make metadata file
                 try:
@@ -355,7 +373,6 @@ if __name__ == '__main__':
                     meta_out_fname = os.path.join(savedir, 'meta_%2.2f_.pkl' % tune_freq) 
                     with open(meta_out_fname, 'wb') as f:
                         pickle.dump(metadata, f)
-                    print('Wrote metadata to %s' % meta_out_fname)
                 except:
                     None
 
@@ -363,4 +380,5 @@ if __name__ == '__main__':
         except IOError:
             print('IOError, skipping.')
         idx = idx + op.anlen
+        
         np.array(idx).tofile(datpath)

@@ -161,7 +161,6 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
     You have to clear out the data storage directory - it contains files from a different sample-rate experiment
 
 
-
 # rsync
 
     crontab -e
