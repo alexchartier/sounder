@@ -1,0 +1,9 @@
+The following lines could be added to crontab -e to run the software
+
+
+# * * * * * /home/alex/sounder/run_tx > /home/alex/sounder/run_tx.log & 
+# * * * * * /home/alex/sounder/run_rx > /home/alex/sounder/run_rx.log &
+# *\10 * * * * /home/alex/sounder/run_analysis > /home/alex/sounder/run_analysis.log &
+# * 1 * * * /home/alex/sounder/run_daily_plots > /home/alex/sounder/daily_plots.log &
+
+
