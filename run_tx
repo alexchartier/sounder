@@ -5,18 +5,18 @@ current_time="`date +%Y/%m/%d_%H:%M`"
 
 export sdir=/home/alex/sounder/
 export tx=$sdir'tx_chirp.py'
-export freq_list=$sdir'freq_lists/mcm_ops.flist'
+export freq_list=$sdir'freq_lists/mcm_highres.flist'
 export flog=$sdir'freq_lists/freqstep.log'
 export waveform=$sdir'waveforms/code-l1000-b10-000000f.bin'
 export rate=5E5
 export mboard='192.168.10.3'
 
-if test `find "$flog" -mmin -1`  
+if test `find "$flog" -mmin -0.1`  
 then
     pid="`pgrep -x python`"
     echo "tx_chirp.py running at ${current_time} possibly as pid ${pid}"
 else :
     echo "tx_chirp.py not running, launching at ${current_time}"
-    python $tx -m $mboard -d "A:A" -f $freq_list -G 0.1 -g 0 -r $rate $waveform
+    python $tx -m $mboard -d "A:A" -f $freq_list -G 1 -g 0 -r $rate $waveform
 fi
 exit 0
