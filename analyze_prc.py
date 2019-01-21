@@ -320,7 +320,8 @@ if __name__ == '__main__':
 
             if op.plot:
                 plt.clf()
-                plt.pcolormesh(dop_vel, rg, np.transpose(M), vmin=(np.median(M) - 1.0),)# vmax=10.)
+                plt.pcolormesh(dop_vel, rg, np.transpose(M), 
+                    vmin=(np.median(M) - 1.0), vmax=10.)
                 plt.ylabel('range (km)')
                 plt.xlabel('Doppler velocity (m/s)')
                 clb = plt.colorbar()

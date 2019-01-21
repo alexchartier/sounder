@@ -27,8 +27,8 @@ def main():
 def step(usrp, op, 
     ch_num=0, 
     sleeptime=0.1, 
-    flog_fname=None,
     freq_list_fname=None,
+    flog_fname=None,
     lock_fname=None,
     time_source='GPS',
     timestr='%Y/%b/%d %H:%M:%S',
@@ -96,7 +96,7 @@ def step(usrp, op,
 
             # Optionally write out the shift samples of each frequency
             tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
-            if out_fname:
+            if flog_fname:
                 # Change to 'a' to append
                 with open(tune_time.strftime(out_fname), 'w') as f:
                     f.write('%s %s %i\n' % (timestr, str(freq).rjust(4), tune_sample))

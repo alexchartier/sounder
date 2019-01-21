@@ -16,6 +16,6 @@ then
     echo "prc_analysis already running - $datpath changing"
 else
     echo "$datpath not changing or not found. Launching $sdir at ${current_time}"
-    python $sdir $outdir -c $chan -l $codelen -s 0 -t $threshold
+    python $sdir $outdir -c $chan -l $codelen -s 0 -t $threshold -p -x
 fi
 exit 0
