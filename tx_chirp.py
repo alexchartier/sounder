@@ -571,7 +571,7 @@ class Tx(object):
         fg.start()
 
         # Step the USRP through a list of frequencies
-        basedir ='/'.join(op.freq_list_fname.split('/')[:-1]) 
+        basedir ='/'.join(op.freq_list_fname.split('/')[:-2]) 
         flog_fname = os.path.join(basedir, 'logs/freqstep.log')
         lock_fname = os.path.join(basedir, 'logs/gps_lock.log')
 

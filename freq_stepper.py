@@ -90,15 +90,15 @@ def step(usrp, op,
             timestr = tune_time.strftime('%Y/%m/%d-%H:%M:%S')
             if lock_fname:
                 if gps_lock != prev_lock:
-                    with open(tune_time.strftime(lock_fname), 'a') as f:
+                    with open(tune_time.strftime(lock_fname), 'a+') as f:
                         f.write('GPS lock status: %s at %s' % (gps_lock, timestr))
                 prev_lock = gps_lock
 
             # Optionally write out the shift samples of each frequency
             tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
-            if out_fname:
+            if flog_fname:
                 # Change to 'a' to append
-                with open(tune_time.strftime(out_fname), 'w') as f:
+                with open(tune_time.strftime(flog_fname), 'w') as f:
                     f.write('%s %s %i\n' % (timestr, str(freq).rjust(4), tune_sample))
           
             usrp.set_command_time(
