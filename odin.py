@@ -909,15 +909,11 @@ class Thor(object):
 
         # Step through freqs
         basedir ='/'.join(op.freq_list_fname.split('/')[:-1]) 
-        if op.flog_fname:
-            flog_fname = os.path.join(basedir, 'logs/%s' % op.flog_fname)
-        if op.lock_fname:
-            lock_fname = os.path.join(basedir, 'logs/%s' % op.lock_fname)
+        lock_fname = os.path.join(basedir, 'logs/gps_lock.log')
 
         freq_stepper.step(
             usrp, op, 
             freq_list_fname=op.freq_list_fname,
-            flog_fname=flog_fname,
             lock_fname=lock_fname,
         )
 
@@ -1272,7 +1268,7 @@ def _add_time_group(parser):
         45:  12
         (default: None)''',
     )   
-   
+
     return parser
 
 
@@ -1355,14 +1351,6 @@ def _build_thor_parser(Parser, *args):
         help='''Reduce text output to the screen. (default: False)''',
     )
 
-    timegroup.add_argument(
-        '-f', '--freq_log', dest='flog_fname',
-        help='''Log file of tune times (stored in logs)''',
-    )   
-    timegroup.add_argument(
-        '-s', '--gps_log', dest='lock_fname',
-        help='''Log of GPS lock status (stored in logs)''',
-    )   
 
 
     parser = _add_dir_group(parser)
