@@ -572,14 +572,15 @@ class Tx(object):
 
         # Step the USRP through a list of frequencies
         basedir ='/'.join(op.freq_list_fname.split('/')[:-1]) 
-        if flog_fname:
-            flog_fname = os.path.join(basedir, 'logs/%s' % flog_fname)
-        if lock_fname:
-            lock_fname = os.path.join(basedir, 'logs/%s' % lock_fname)
+        if op.flog_fname:
+            flog_fname = os.path.join(basedir, 'logs/%s' % op.flog_fname)
+        if op.lock_fname:
+            lock_fname = os.path.join(basedir, 'logs/%s' % op.lock_fname)
+
         freq_stepper.step(
             usrp, op, 
             freq_list_fname=op.freq_list_fname,
-            out_fname=flog_fname,
+            flog_fname=flog_fname,
             lock_fname=lock_fname,
         ) 
 
@@ -795,7 +796,7 @@ if __name__ == '__main__':
                 (default: None)''',
     ) 
     timegroup.add_argument(
-        '-f', '--freq_log', dest='flog_fname',
+        '-l', '--freq_log', dest='flog_fname',
         help='''Log file of tune times (stored in logs)''',
     )
     timegroup.add_argument(
