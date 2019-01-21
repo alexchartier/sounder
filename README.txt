@@ -72,22 +72,9 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
 
 # Before running the following code:
     Feeling lucky...
-        sudo add-apt-repository -y ppa:bladerf/bladerf
-        sudo add-apt-repository -y ppa:myriadrf/drivers
-        sudo add-apt-repository -y ppa:myriadrf/gnuradio
-        sudo add-apt-repository -y ppa:gqrx/gqrx-sdr
-        sudo apt-get update
-        sudo apt-get install gqrx     
+        Get the disk image and restore using clonezilla
 
-        sudo apt-get install python
-        sudo apt-get install python-tk
-        sudo apt-get install libhdf5-dev
-        sudo apt-get install python-pip
-        sudo apt-get install vim
-        pip install digital_rf
-        pip install matplotlib==2.2.3
-
-    Not feeling lucky....
+    Otherwise ...
         install gnuradio, uhd and all the many dependencies - do NOT upgrade pip at any point
         sudo ldconfig
 
