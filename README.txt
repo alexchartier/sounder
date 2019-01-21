@@ -163,7 +163,7 @@ python plot_rtd.py /data/chirp_notx/ -c hfrx
 
     crontab -e
     Then, in the crontab, to backup every 10 minutes
-    */10 * * * * rsync -av -e ssh /data/ch0/prc_analysis/ chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/south_pole/
+    */10 * * * * rsync -av -e ssh /data/ch0/prc_analysis/ chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/south_pole/ > /home/alex/sounder/rsync.log
 
 # how to rename a computer
 sudo vi /etc/hostname

@@ -39,7 +39,7 @@ sys.path.append('./waveforms/')
 from freq_stepper import get_freq_list
 
 
-def create_pseudo_random_code(clen=10000, seed=0):
+def create_pseudo_random_code(clen=1000, seed=0):
     """
     seed is a way of reproducing the random code without
     having to store all actual codes. the seed can then
@@ -181,7 +181,7 @@ if __name__ == '__main__':
         (default: %(default)s)''',
     )    
     parser.add_argument(
-        '-l', '--code_length', dest='codelen', type=int, default=10000,
+        '-l', '--code_length', dest='codelen', type=int, default=1000,
         help='''Code length. (default: %(default)s)''',
     )
     parser.add_argument(
@@ -223,6 +223,7 @@ if __name__ == '__main__':
     # join outdir to datadir to allow for relative path, normalize
     op.outdir = os.path.abspath(op.outdir.format(datadir=op.datadir))
     if not os.path.isdir(op.outdir):
+        print('Making %s' % op.outdir)
         os.makedirs(op.outdir)
 
     # Define directories 
@@ -260,14 +261,15 @@ if __name__ == '__main__':
     srn = data.get_properties(op.ch, sample=idx)['sample_rate_numerator']
     srd = data.get_properties(op.ch, sample=idx)['sample_rate_denominator']
     sr = srn / srd
-
+    """
     # set up directory
     dirn = os.path.join(savedir, op.ch)
     try:
+        print('200 Making %s' % dirn)
         os.makedirs(dirn)
     except:
         None
-
+    """
     # start processing
     while True:
         # move index forward if we are not on a tune time

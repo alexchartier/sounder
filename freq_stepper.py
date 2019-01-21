@@ -25,12 +25,13 @@ def main():
 
 
 def step(usrp, op, 
-         ch_num=0, 
-         sleeptime=0.1, 
-         out_fname=None,
-         freq_list_fname=None,
-         time_source='GPS',
-         timestr='%Y/%b/%d %H:%M:%S'
+    ch_num=0, 
+    sleeptime=0.1, 
+    flog_fname=None,
+    freq_list_fname=None,
+    lock_fname=None,
+    time_source='GPS',
+    timestr='%Y/%b/%d %H:%M:%S',
 ):
     """ Step the USRP's oscillator through a list of frequencies """
     if freq_list_fname:
@@ -40,6 +41,7 @@ def step(usrp, op,
 
     print('Starting freq_stepper')
 
+    prev_lock = False
     # Check for GPS lock
     while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
         print("waiting for gps lock...")
@@ -85,14 +87,19 @@ def step(usrp, op,
 
             gps_lock = usrp.get_mboard_sensor("gps_locked").to_bool()
             print('GPS lock status: %s' % gps_lock)
+            timestr = tune_time.strftime('%Y/%m/%d-%H:%M:%S')
+            if lock_fname:
+                if gps_lock != prev_lock:
+                    with open(tune_time.strftime(lock_fname), 'a') as f:
+                        f.write('GPS lock status: %s at %s' % (gps_lock, timestr))
+                prev_lock = gps_lock
 
             # Optionally write out the shift samples of each frequency
             tune_sample = int(np.uint64(tune_time_secs * ch_samplerate_ld))
             if out_fname:
                 # Change to 'a' to append
                 with open(tune_time.strftime(out_fname), 'w') as f:
-                    f.write('%s %s %i\n' % (tune_time.strftime('%Y/%m/%d-%H:%M:%S.%f'), \
-                            str(freq).rjust(4), tune_sample))
+                    f.write('%s %s %i\n' % (timestr, str(freq).rjust(4), tune_sample))
           
             usrp.set_command_time(
                                   uhd.time_spec(float(tune_time_secs)),
