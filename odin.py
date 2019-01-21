@@ -908,18 +908,14 @@ class Thor(object):
         fg.start()
 
         # Step through freqs
-        """
+
         basedir ='/'.join(op.freq_list_fname.split('/')[:-2]) 
-        if op.flog_fname:
-            flog_fname = os.path.join(basedir, 'logs/%s' % op.flog_fname)
-        if op.lock_fname:
-            lock_fname = os.path.join(basedir, 'logs/%s' % op.lock_fname)
-        """
+        lock_fname = os.path.join(basedir, 'logs/gps_lock.log')
+
         freq_stepper.step(
             usrp, op, 
             freq_list_fname=op.freq_list_fname,
-            # flog_fname=flog_fname,
-            # lock_fname=lock_fname,
+            lock_fname=lock_fname,
         )
 
         # wait until flowgraph stops
@@ -1273,7 +1269,7 @@ def _add_time_group(parser):
         45:  12
         (default: None)''',
     )   
-   
+
     return parser
 
 
