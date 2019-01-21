@@ -571,11 +571,16 @@ class Tx(object):
         fg.start()
 
         # Step the USRP through a list of frequencies
-        flog = os.path.join('/'.join(op.freq_list_fname.split('/')[:-1]), 'freqstep.log')
+        basedir ='/'.join(op.freq_list_fname.split('/')[:-1]) 
+        if flog_fname:
+            flog_fname = os.path.join(basedir, 'logs/%s' % flog_fname)
+        if lock_fname:
+            lock_fname = os.path.join(basedir, 'logs/%s' % lock_fname)
         freq_stepper.step(
             usrp, op, 
             freq_list_fname=op.freq_list_fname,
-            out_fname=flog,
+            out_fname=flog_fname,
+            lock_fname=lock_fname,
         ) 
 
         # wait until flowgraph stops
@@ -788,6 +793,14 @@ if __name__ == '__main__':
                     30:  9
                     45:  12
                 (default: None)''',
+    ) 
+    timegroup.add_argument(
+        '-f', '--freq_log', dest='flog_fname',
+        help='''Log file of tune times (stored in logs)''',
+    )
+    timegroup.add_argument(
+        '-s', '--gps_log', dest='lock_fname',
+        help='''Log of GPS lock status (stored in logs)''',
     )
 
     op = parser.parse_args()
