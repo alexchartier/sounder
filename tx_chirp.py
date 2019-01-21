@@ -572,10 +572,8 @@ class Tx(object):
 
         # Step the USRP through a list of frequencies
         basedir ='/'.join(op.freq_list_fname.split('/')[:-1]) 
-        if op.flog_fname:
-            flog_fname = os.path.join(basedir, 'logs/%s' % op.flog_fname)
-        if op.lock_fname:
-            lock_fname = os.path.join(basedir, 'logs/%s' % op.lock_fname)
+        flog_fname = os.path.join(basedir, 'logs/freqstep.log')
+        lock_fname = os.path.join(basedir, 'logs/gps_lock.log')
 
         freq_stepper.step(
             usrp, op, 

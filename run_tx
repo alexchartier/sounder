@@ -7,7 +7,6 @@ export sdir=/home/alex/sounder/
 export tx=$sdir'tx_chirp.py'
 export freq_list=$sdir'freq_lists/mcm_highres.flist'
 export flog='freqstep.log'
-export lock_log='gps_lock.log'
 export waveform=$sdir'waveforms/code-l1000-b10-000000f.bin'
 export rate=5E5
 export mboard='192.168.10.3'
@@ -18,6 +17,6 @@ then
     echo "tx_chirp.py running at ${current_time} possibly as pid ${pid}"
 else :
     echo "tx_chirp.py not running, launching at ${current_time}"
-    python $tx -m $mboard -d "A:A" -f $freq_list -l $flog -s $lock_log -G 1 -g 0 -r $rate $waveform 
+    python $tx -m $mboard -d "A:A" -f $freq_list -G 1 -g 0 -r $rate $waveform 
 fi
 exit 0
