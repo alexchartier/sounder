@@ -908,6 +908,7 @@ class Thor(object):
         fg.start()
 
         # Step through freqs
+
         basedir ='/'.join(op.freq_list_fname.split('/')[:-2]) 
         lock_fname = os.path.join(basedir, 'logs/gps_lock.log')
 
@@ -1350,8 +1351,6 @@ def _build_thor_parser(Parser, *args):
         '-q', '--quiet', dest='verbose', action='store_false',
         help='''Reduce text output to the screen. (default: False)''',
     )
-
-
 
     parser = _add_dir_group(parser)
     parser = _add_mainboard_group(parser)
