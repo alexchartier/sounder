@@ -7,7 +7,7 @@ export sdir=/home/alex/sounder/analyze_prc.py
 export outdir=/data 
 export chan=mcm_crary 
 export codelen=1000 
-export threshold=0 
+export threshold=6 
 
 # Start the analysis code if last.dat has not changed recently
 datpath=$outdir/prc_analysis/$chan/last.dat
@@ -16,6 +16,6 @@ then
     echo "prc_analysis already running - $datpath changing"
 else
     echo "$datpath not changing or not found. Launching $sdir at ${current_time}"
-    python $sdir $outdir -c $chan -l $codelen -s 0 -t $threshold -p -x
+    python $sdir $outdir -c $chan -l $codelen -s 0 -t $threshold -p 
 fi
 exit 0
