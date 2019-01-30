@@ -383,5 +383,7 @@ if __name__ == '__main__':
         except IOError:
             print('IOError, skipping.')
         idx = idx + op.anlen
-        
-        np.array(idx).tofile(datpath)
+        try: 
+            np.array(idx).tofile(datpath)
+        except:
+            None

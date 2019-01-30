@@ -13,7 +13,7 @@ then
     echo "odin.py not running, launching at ${current_time}"
     
     python $sdir -m 192.168.10.12 -d "A:A A:B" -c hfrx_0,hfrx_1 --type $type -f $freq_list -r $rate -i 10 /data  &
-    python $sdir -m 192.168.10.13 -d "A:A A:B" -c hfrx_2,hfrx_3 --type $type -f $freq_list -r $rate -i 10 /data  &
+    python $sdir -m 192.168.10.14 -d "A:A A:B" -c hfrx_2,hfrx_3 --type $type -f $freq_list -r $rate -i 10 /data  &
     python $sdir -m 192.168.10.15 -d "A:A A:B" -c hfrx_4,hfrx_5 --type $type -f $freq_list -r $rate -i 10 /data  &
 else :
     pid="`pgrep -x python`"

@@ -135,7 +135,9 @@ def step(usrp, op,
 
 def set_dev_time(usrp):
     # 7)  Verify that usrp->get_time_last_pps() and usrp->get_mboard_sensor("gps_time") return the same time.
-    while usrp.get_time_last_pps().get_real_secs() + 1 != usrp.get_mboard_sensor("gps_time").to_real():
+    while usrp.get_time_last_pps().get_real_secs() != usrp.get_mboard_sensor("gps_time").to_real():
+        print(usrp.get_time_last_pps().get_real_secs() + 1)
+        print(usrp.get_mboard_sensor("gps_time").to_real())
         # 1)  Poll on usrp->get_mboard_sensor("gps_locked") until it returns true
         while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
             print("Waiting for gps lock...")
