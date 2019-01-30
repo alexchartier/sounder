@@ -39,7 +39,7 @@ sys.path.append('./waveforms/')
 from freq_stepper import get_freq_list
 
 
-def create_pseudo_random_code(clen=10000, seed=0):
+def create_pseudo_random_code(clen=1000, seed=0):
     """
     seed is a way of reproducing the random code without
     having to store all actual codes. the seed can then
@@ -181,7 +181,7 @@ if __name__ == '__main__':
         (default: %(default)s)''',
     )    
     parser.add_argument(
-        '-l', '--code_length', dest='codelen', type=int, default=10000,
+        '-l', '--code_length', dest='codelen', type=int, default=1000,
         help='''Code length. (default: %(default)s)''',
     )
     parser.add_argument(
@@ -223,11 +223,18 @@ if __name__ == '__main__':
     # join outdir to datadir to allow for relative path, normalize
     op.outdir = os.path.abspath(op.outdir.format(datadir=op.datadir))
     if not os.path.isdir(op.outdir):
+        print('Making %s' % op.outdir)
         os.makedirs(op.outdir)
 
     # Define directories 
-    plotdir = os.path.join(op.outdir, '%s/plots' % op.ch)
-    savedir = os.path.join(op.outdir, '%s/spectra' % op.ch)
+    basedir = os.path.join(op.outdir, op.ch)
+    plotdir = os.path.join(basedir, 'plots')
+    savedir = os.path.join(basedir, 'spectra')
+
+    try:
+        os.makedirs(basedir)
+    except:
+        None
 
     #  Delete old if necessary
     datpath = os.path.join(op.outdir, '%s/last.dat' % op.ch)
@@ -260,13 +267,6 @@ if __name__ == '__main__':
     srn = data.get_properties(op.ch, sample=idx)['sample_rate_numerator']
     srd = data.get_properties(op.ch, sample=idx)['sample_rate_denominator']
     sr = srn / srd
-
-    # set up directory
-    dirn = os.path.join(savedir, op.ch)
-    try:
-        os.makedirs(dirn)
-    except:
-        None
 
     # start processing
     while True:
@@ -313,12 +313,17 @@ if __name__ == '__main__':
             dop_vel = (dop_hz / (tune_freq * 1E6)) * 3E8
 
             maxind = np.unravel_index(M.argmax(), M.shape)
-            print('%i   Freq: %02.2f: Max. value: %02.2f dB at %2.1f m/s, %2.1f km'\
-                 % (idx, tune_freq, M.max(), dop_vel[maxind[0]], rg[maxind[1]]))
+            infostr = '%i   Freq: %02.2f: Max. value: %02.2f dB at %2.1f m/s, %2.1f km'\
+                 % (idx, tune_freq, M.max(), dop_vel[maxind[0]], rg[maxind[1]])
+            print(infostr)
+            log_fname = os.path.join(basedir, 'analysis.log')
+            with open(log_fname, 'w+') as f:
+                f.write(infostr)
 
             if op.plot:
                 plt.clf()
-                plt.pcolormesh(dop_vel, rg, np.transpose(M), vmin=(np.median(M) - 1.0),)# vmax=10.)
+                plt.pcolormesh(dop_vel, rg, np.transpose(M), 
+                    vmin=(np.median(M) - 1.0), vmax=10.)
                 plt.ylabel('range (km)')
                 plt.xlabel('Doppler velocity (m/s)')
                 clb = plt.colorbar()
@@ -380,5 +385,7 @@ if __name__ == '__main__':
         except IOError:
             print('IOError, skipping.')
         idx = idx + op.anlen
-        
-        np.array(idx).tofile(datpath)
+        try: 
+            np.array(idx).tofile(datpath)
+        except:
+            None

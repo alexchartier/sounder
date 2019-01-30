@@ -1,0 +1,12 @@
+The following lines could be added to crontab -e to run the software
+
+# * * * * * /home/alex/sounder/run_tx > /home/alex/sounder/logs/run_tx.log & 
+* * * * * /home/alex/sounder/run_rx > /home/alex/sounder/logs/run_rx.log &
+* * * * * /home/alex/sounder/run_analysis > /home/alex/sounder/logs/run_analysis.log &
+* * * * * /home/alex/sounder/run_daily_plots > /home/alex/sounder/logs/daily_plots.log &
+0 * * * * rsync -av -e ssh /data/prc_analysis/mcm_crary/ chartat1@sd-ssh.jhuapl.edu:/project/space_weather_imaging/alex/mcmurdo/ > /home/alex/sounder/logs/rsync.log &
+
+
+
+
+

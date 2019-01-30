@@ -1,3 +1,3 @@
 #!/bin/bash
-python /home/alex/sounder/plot_rtd.py /data/ -c ob_hill
+python /home/alex/sounder/plot_rtd.py /data/ -c mcm_crary
 

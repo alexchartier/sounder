@@ -20,8 +20,8 @@ def save_daily_files(op):
     op.chdir = os.path.join(op.datadir, os.path.join('prc_analysis', op.ch))
     print('Processing daily plots in %s' % op.chdir)
     # Set up output dir
-    op.outdir = os.path.join('/'.join(op.chdir.split('/')[:-1]), 'daily/data/')
-    op.plotdir = os.path.join('/'.join(op.chdir.split('/')[:-1]), 'daily/plots/')
+    op.outdir = os.path.join(op.chdir, 'daily/data/')
+    op.plotdir = os.path.join(op.chdir, 'daily/plots/')
     try:
         os.makedirs(op.outdir)
     except:

@@ -908,8 +908,15 @@ class Thor(object):
         fg.start()
 
         # Step through freqs
-        freqstep_log_fname = os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log'
-        freq_stepper.step(usrp, op, freq_list_fname=op.freq_list_fname, out_fname=freqstep_log_fname)
+
+        basedir ='/'.join(op.freq_list_fname.split('/')[:-2]) 
+        lock_fname = os.path.join(basedir, 'logs/gps_lock.log')
+
+        freq_stepper.step(
+            usrp, op, 
+            freq_list_fname=op.freq_list_fname,
+            lock_fname=lock_fname,
+        )
 
         # wait until flowgraph stops
         try:
@@ -1262,7 +1269,7 @@ def _add_time_group(parser):
         45:  12
         (default: None)''',
     )   
-   
+
     return parser
 
 
@@ -1272,8 +1279,8 @@ def _build_thor_parser(Parser, *args):
     formatter = RawDescriptionHelpFormatter(scriptname)
     width = formatter._width
 
-    title = 'THOR (The Haystack Observatory Recorder)'
-    copyright = 'Copyright (c) 2017 Massachusetts Institute of Technology'
+    title = 'Odin (son of The Haystack Observatory Recorder)'
+    copyright = 'Copyright (c) 2019 Johns Hopkins APL, 2017 Massachusetts Institute of Technology'
     shortdesc = 'Record data from synchronized USRPs in DigitalRF format.'
     desc = '\n'.join((
         '*'*width,
@@ -1338,7 +1345,7 @@ def _build_thor_parser(Parser, *args):
 
     parser.add_argument(
         '--version', action='version',
-        version='THOR 3.1, using digital_rf {0}'.format(drf.__version__),
+        version='Odin 1, using digital_rf {0}'.format(drf.__version__),
     )
     parser.add_argument(
         '-q', '--quiet', dest='verbose', action='store_false',
