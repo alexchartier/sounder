@@ -9,7 +9,7 @@ current_time="`date +%Y/%m/%d_%H:%M`";
 
 export sdir=/home/alex/sounder/odin.py 
 export outdir=/data 
-export chan=hfrx_0 
+export chan=ob_hill 
 export freq_list='/home/alex/sounder/freq_lists/mcm_ops.flist'
 export rate=5E5
 export type='sc16'

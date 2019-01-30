@@ -17,6 +17,6 @@ then
     echo "tx_chirp.py running at ${current_time} possibly as pid ${pid}"
 else :
     echo "tx_chirp.py not running, launching at ${current_time}"
-    python $tx -m $mboard -d "A:A" -f $freq_list -G 0.1 -g 0 -r $rate $waveform
+    python $tx -m $mboard -d "A:A" -f $freq_list -G 1 -g 0 -r $rate $waveform
 fi
 exit 0

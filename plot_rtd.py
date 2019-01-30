@@ -181,7 +181,7 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
         plt.title('%2.1f MHz, %s' % (freq, spectra['time'][0].strftime('%Y/%b/%d'))) 
 
         figdir = os.path.join(
-            op.plotdir, t.strftime('rtd_%Y%b%d') + '_%2.2f_MHz.png' % freq,
+            op.plotdir, spectra['time'][0].strftime('rtd_%Y%b%d') + '_%2.2f_MHz.png' % freq,
         )
         plt.savefig(figdir)
         print('Saving to %s'% figdir)
