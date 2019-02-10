@@ -13,7 +13,7 @@ python prc_analyze.py /data/prc -c hfrx -l 10000 -s 0
 cd waveforms; python create_waveform.py -l 1000 -b 10 -s 0 -f; cd ..
 python tx_chirp.py -m 192.168.10.3 -d "A:A" -f freq_lists/mcm_ops.flist -G 1 -g 0 -r 5E5 waveforms/code-l1000-b10-000000f.bin
 python odin.py -m 192.168.10.13 -d "A:A" -c hfrx -f freq_lists/mcm_ops.flist -r 5E5 -i 10 /data/chirp
-python analyze_prc.py /data/chirp -c hfrx -l 1000 -s 0 
+python analyze_prc.py /data/chirp -c hfrx -l 1000 -s 0 -t 6.5
 python plot_rtd.py /data/chirp_notx/ -c hfrx
 
 
