@@ -36,19 +36,14 @@ def save_daily_files(op):
 
     # Remove old files if necessary
     datpath = os.path.join(op.outdir, 'lastplot.pkl')
-    if op.delete_old:
-        for root, dirnames, filenames in os.walk(op.outdir):
-            for f in filenames:
-                if f.endswith(('.png', '.pkl')):
-                    os.remove(os.path.join(root, f)) 
 
     # See where we got up to before.
-    if os.path.isfile(datpath):
-        try:
-            with open(datpath, 'rb') as f:
-                startday = pickle.load(f)
-        except:
-            startday = dt.datetime(1900, 1, 1)
+    if os.path.isfile(datpath) and not op.restart:
+            try:
+                with open(datpath, 'rb') as f:
+                    startday = pickle.load(f)
+            except:
+                startday = dt.datetime(1900, 1, 1)
     else: 
         startday = dt.datetime(1900, 1, 1)
 
@@ -131,7 +126,10 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
     tmax = dt.datetime(1, 1, 1)
 
     for freq, spectra in data.items():
-        if 'int_pwr' in spectra.keys():
+        for k, v in spectra.items():
+            spectra[k] = np.array(v)
+
+        if ('int_pwr' in spectra.keys()) and (spectra['int_pwr'].shape[0] > 10):
             freqs.append(freq)
             # figure out time limits along the way
             min_t = np.min(spectra['time']) 
@@ -140,33 +138,68 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
                 tmin = min_t
             if max_t > tmax:
                 tmax = max_t
-    freqs.sort()
+
+    freqs = np.array(freqs)
+    if op.fmin:
+        freqs = freqs[freqs > np.float(op.fmin)]
+    if op.fmax:
+        freqs = freqs[freqs < np.float(op.fmax)]
+
+    try:
+        freqs.sort()
+    except:
+        None
+
+    if op.tmin:
+        tmin = tmin.replace(hour=int(op.tmin), minute=0, second=0)
+    if op.tmax:
+        tmax = tmax.replace(hour=int(op.tmax), minute=0, second=0)
 
     # Abort if no data 
-    if len(freqs) == 0:
+    if freqs.shape[0] == 0:
         print('No spectra found in %s' % in_fname)
         exit()
 
     # Then plot
     plt.style.use('dark_background')
     fig, ax = plt.subplots(len(freqs), 1, figsize=(12, 8))
+    ax = np.array([ax,])
     for ind, freq in enumerate(freqs[::-1]):
         print('plotting freq %2.2f MHz' % freq)
 
         spectra = data[freq]
-        for k, v in spectra.items():
-            spectra[k] = np.array(v)
 
         # Add endpoints to all the times, fill in with NaNs for non-recorded times
         ranges = spectra.pop('range')
         times = spectra.pop('time')
         doppler = spectra.pop('doppler')
         times = np.array([times, times + dt.timedelta(seconds=5)]).T.flatten()
+    
+        if op.geophys:
+            import nvector as nv
+            wgs84 = nv.FrameE(name='WGS84')
+            R = 6371
+            mcm = wgs84.GeoPoint(latitude=-77.51, longitude=166.40, z=0, degrees=True)
+            zsp = wgs84.GeoPoint(latitude=-90, longitude=0, z=0, degrees=True)
+            mcm_zsp = np.sqrt(np.sum(mcm.delta_to(zsp).pvector ** 2)) / 1E3
+            d0 = mcm_zsp / 2
+            h_p = np.sqrt( (ranges / 2) ** 2 - (mcm_zsp / 2) ** 2)
+            r_d0 = np.sqrt( R ** 2 - d0 ** 2)
+            alts = h_p - (R - r_d0)
+            y_ax = alts
+            ylabel = 'Virt. Ht (km)'
+            ylim = (100, 800)
+        else:
+            y_ax = ranges
+            ylabel = 'Virt. Rg. (km)'
+            ylim = (1400, 1700)
+
         for key, val in spectra.items():
             tdim = val.shape[0]
             vals_ext = np.zeros((tdim * 2, val.shape[1])) * np.nan
             vals_ext[np.arange(tdim) * 2, :] = val 
             spectra[key] = vals_ext
+    
         # Normalize power
         if use_int_pwr:
             A = spectra['int_pwr'].copy()
@@ -176,19 +209,18 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
             A[A > 1] = 1 
         else:  # use max power
             A = spectra['max_pwr_db'].copy()
-            # take out the noise floor? Probably ~6 dB
-            A -= 6  
-            A[A < 0] = 0
+            """
             A = 10 ** (A / 10)  # Convert to units of linear power 
             normfac = 10
             A /= normfac  # normalize to X linear power units (10+ is good)
             A[A > 1] = 1  # Saturate above normalization
+            """
 
         sortind = np.argsort(times)
 
         # Set plot labels
         ax[ind].grid(which='both', linestyle='--')
-        ax[ind].set_ylabel('%2.2f MHz\nVir. Rg. (km)' % freq)
+        ax[ind].set_ylabel(('%2.2f MHz\n' + ylabel) % freq)
 
         if ind == len(freqs) - 1:
             ax[ind].set_xlabel('Time (UT)')
@@ -199,37 +231,54 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
             ax[ind].set_xticklabels('')
       
         # Set colours
-        sdv = spectra['dop_vel'].copy()[sortind, :]
-        sdv[sdv == 0] *= np.nan
-        cmap = plt.get_cmap('seismic')
-        norm = matplotlib.colors.Normalize(vmin=-200, vmax=200)
+        if op.type == 'doppler':
+            plotvals = spectra['dop_vel'].copy()[sortind, :]
+            plotvals[plotvals == 0] *= np.nan
+            cmap = plt.get_cmap('seismic')
+            norm = matplotlib.colors.Normalize(vmin=-500, vmax=500)
+            colorlabel = 'Doppler velocity (m/s)'
+            title = 'Range-Time-Doppler'
+
+        elif op.type == 'power':
+            plotvals = A[sortind, :]
+            plotvals[plotvals == 0] *= np.nan
+            cmap = plt.get_cmap('gist_heat')
+            norm = matplotlib.colors.Normalize(vmin=5, vmax=10)
+            colorlabel = 'Intensity (dB)'
+            title = 'Range-Time-Intensity'
+
+        # Get rid of NaN alt. entries
+        finind = np.isfinite(y_ax)
+        plotvals = plotvals[:, finind]
+        y_ax = y_ax[finind]
 
         # Plot 
         im = ax[ind].pcolormesh(
-            times[sortind], ranges, sdv.T, 
+            times[sortind], y_ax, plotvals.T, 
             cmap=cmap, norm=norm, shading='flat', 
         )
         ax[ind].set_xlim(tmin, tmax)
-        ax[ind].set_ylim(1300, 1700)
+        ax[ind].set_ylim(ylim)
         ax[ind].grid()
 
     fig.subplots_adjust(right=0.8)
     cax = fig.add_axes([0.85, 0.2, 0.03, 0.67])
     cbar = plt.colorbar(im, cax=cax)
-    cbar.set_label('Doppler velocity (m/s)')
+    cbar.set_label(colorlabel)
 
-    fig.suptitle(times[0].strftime('%Y-%m-%d Range-Time-Doppler'))
+    fig.suptitle(times[0].strftime('%Y-%m-%d ') + title)
 
     figdir = os.path.join(
         op.plotdir, times[0].strftime('rtd_%Y%b%d.png'),
     )
+    plt.show()
     plt.savefig(figdir)
     print('Saving to %s'% figdir)
 
 
 if __name__ == '__main__':
     import matplotlib
-    matplotlib.use('Agg')
+    # matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
@@ -244,13 +293,37 @@ if __name__ == '__main__':
         help='''Channel name of data to analyze. (default: %(default)s)'''
     )   
     parser.add_argument(
-        '-x', '--delete_old', action='store_true', default=False,
-        help='''Delete existing processed files.''',
+        '-x', '--restart', action='store_true', default=False,
+        help='''Repeat processing for all files.''',
+    )
+    parser.add_argument(
+        '-g', '--geophys', action='store_true', default=True,
+        help='''Use derived geophysical parameters instead of raw quantities (e.g. alt instead of range).''',
     )
     parser.add_argument(
         '-np', '--noplot', action='store_true', default=False,
         help='''Produce range-doppler plots''',
     )   
+    parser.add_argument(
+        '-t', '--type', default='power',
+        help='''Choose whether to plot doppler or power on colour axis''',
+    )
+    parser.add_argument(
+        '-tmin', '--tmin', default=None,
+        help='''Min plot time (hour)''',
+    )
+    parser.add_argument(
+        '-tmax', '--tmax', default=None,
+        help='''max plot time (hour)''',
+    )
+    parser.add_argument(
+        '-fmin', '--fmin', default=None,
+        help='''Min frequency (MHz)''',
+    )
+    parser.add_argument(
+        '-fmax', '--fmax', default=None,
+        help='''Max frequency (MHz)''',
+    )
 
     op = parser.parse_args()
     op.datadir = os.path.abspath(op.datadir)
