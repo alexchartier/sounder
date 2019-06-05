@@ -22,9 +22,10 @@ def save_daily_files(op):
     specdir = os.path.join(op.chdir, 'spectra')
     assert os.path.isdir(specdir), 'No spectra found in chdir - check %s' % op.chdir
     print('Processing daily plots in %s' % op.chdir)
+
     # Set up output dir
     op.outdir = os.path.join(op.chdir, 'daily/data/')
-    op.plotdir = os.path.join(op.chdir, 'daily/plots/')
+    op.plotdir = os.path.join(op.chdir, 'plots/')
     try:
         os.makedirs(op.outdir)
     except:
@@ -34,29 +35,26 @@ def save_daily_files(op):
     except:
         None
 
-    # Remove old files if necessary
-    datpath = os.path.join(op.outdir, 'lastplot.pkl')
+    # Get metadata first
+    metafiles = glob.glob(os.path.join(specdir, 'meta*.pkl'))
+    if len(metafiles) > 0:
+        meta = {}
+        for fname in metafiles:
+            freq = float(fname.split('/')[-1].split('_')[1])
+            with open(fname, 'rb') as f:
+                meta[freq] = pickle.load(f)
 
-    # See where we got up to before.
-    if os.path.isfile(datpath) and not op.restart:
-            try:
-                with open(datpath, 'rb') as f:
-                    startday = pickle.load(f)
-            except:
-                startday = dt.datetime(1900, 1, 1)
-    else: 
-        startday = dt.datetime(1900, 1, 1)
-
+    # Go through individual spectra files and process them into daily files
     keys = 'time', 'range', 'doppler', 'pwr'
-    for root, dn, filenames in os.walk(specdir):
-        # Get metadata first
-        metafiles = glob.glob(os.path.join(root, 'meta*.pkl'))
-        if len(metafiles) > 0:
-            meta = {}
-            for fname in metafiles:
-                freq = float(fname.split('/')[-1].split('_')[1])
-                with open(fname, 'rb') as f:
-                    meta[freq] = pickle.load(f)
+    dirnames = [os.path.join(specdir, dn) for dn in os.listdir(specdir)]
+    dirnames = [dn for dn in dirnames if os.path.isdir(dn)]
+    dirnames.sort()
+    out_fname_fmt = os.path.join(op.outdir, '%Y%b%d_analysis.pkl')
+    if op.restart:
+        for dirn in dirnames:
+            nfiles = len(glob.glob(os.path.join(dirn, '*.pkl')))
+            print('Processing %s (%i files)' % (dirn, nfiles))
+            day = dt.datetime.strptime(dirn.split('/')[-1], '%Y%m%d')
 
             # Set up the data holder here 
             data = {}  
@@ -64,15 +62,9 @@ def save_daily_files(op):
                 data[freq] = {}
                 data[freq]['time'] = []
                 data[freq]['range'] = vals['range']
-                data[freq]['doppler'] = vals['doppler']
-        #try:
-        for dirn in dn:
-            day = dt.datetime.strptime(dirn, '%Y%m%d')
-            if day <= startday:
-                continue
+                data[freq]['doppler'] = vals['doppler']            
 
-            daydir = os.path.join(root, dirn)
-            for fn in os.listdir(daydir):
+            for fn in os.listdir(dirn):
                 # Get frequencies and times from the filename
                 freq = float(fn.split('_')[0]) 
                 tod = dt.datetime.strptime(fn.split('_')[2], '%H%M%S')
@@ -85,7 +77,7 @@ def save_daily_files(op):
                 )
 
                 # load range, doppler and intensity
-                with open(os.path.join(daydir, fn), 'rb') as f:
+                with open(os.path.join(dirn, fn), 'rb') as f:
                     spec = pickle.load(f)
                 for k, v in spec.items():
                     try:
@@ -93,30 +85,27 @@ def save_daily_files(op):
                     except:
                         data[freq][k] = [np.squeeze(v.toarray()),]
 
-
             # Save daily files (concatenated spectra)
-            out_fname = os.path.join(op.outdir, day.strftime('%Y%b%d_analysis.pkl')) 
+            out_fname = day.strftime(out_fname_fmt)
             with open(out_fname, 'wb') as f:
                 print('Writing to %s' % out_fname)
                 pickle.dump(data, f)
+    print('\n\n')
 
-            # Plot the pre-processed output
-            if not op.noplot:
-                plot(out_fname)
-
-            # store what day we got up to
-            with open(datpath, 'wb') as f:
-                pickle.dump(day, f)
-            #except:
-            #    None
+    # Plot the pre-processed output
+    for dirn in dirnames:
+        nfiles = len(glob.glob(os.path.join(dirn, '*.pkl')))
+        print('Plotting %s (%i files)' % (dirn, nfiles))
+        day = dt.datetime.strptime(dirn.split('/')[-1], '%Y%m%d')
+        plot(day.strftime(out_fname_fmt), op)
     return op
 
 
-def plot(in_fname, plot_fname=None, use_int_pwr=False):
+def plot(in_fname, op, plot_fname=None):
     with open(in_fname, 'rb') as f:
         data = pickle.load(f)
     params = {
-        'font.size': 15,
+        'font.size': 13,
     }
     plt.rcParams.update(params)
 
@@ -124,12 +113,12 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
     freqs = []
     tmin = dt.datetime(2050, 1, 1)
     tmax = dt.datetime(1, 1, 1)
-
     for freq, spectra in data.items():
         for k, v in spectra.items():
             spectra[k] = np.array(v)
 
-        if ('int_pwr' in spectra.keys()) and (spectra['int_pwr'].shape[0] > 10):
+        min_cts = 25  # require at least this many counts
+        if ('int_pwr' in spectra.keys()) and (spectra['int_pwr'].shape[0] > min_cts):
             freqs.append(freq)
             # figure out time limits along the way
             min_t = np.min(spectra['time']) 
@@ -138,7 +127,6 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
                 tmin = min_t
             if max_t > tmax:
                 tmax = max_t
-
     freqs = np.array(freqs)
     if op.fmin:
         freqs = freqs[freqs > np.float(op.fmin)]
@@ -153,47 +141,55 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
     if op.tmin:
         tmin = tmin.replace(hour=int(op.tmin), minute=0, second=0)
     if op.tmax:
-        tmax = tmax.replace(hour=int(op.tmax), minute=0, second=0)
+        if int(op.tmax) == 24:
+            tmax = tmax + dt.timedelta(days=1)
+            tmax = tmax.replace(hour=0, minute=0, second=0)
+        else:
+            tmax = tmax.replace(hour=int(op.tmax), minute=0, second=0)
 
     # Abort if no data 
     if freqs.shape[0] == 0:
         print('No spectra found in %s' % in_fname)
-        exit()
+        return
 
     # Then plot
     plt.style.use('dark_background')
     fig, ax = plt.subplots(len(freqs), 1, figsize=(12, 8))
-    ax = np.array([ax,])
+    if not isinstance(ax, np.ndarray):
+        ax = np.array([ax,])
+
     for ind, freq in enumerate(freqs[::-1]):
         print('plotting freq %2.2f MHz' % freq)
-
         spectra = data[freq]
 
         # Add endpoints to all the times, fill in with NaNs for non-recorded times
         ranges = spectra.pop('range')
         times = spectra.pop('time')
         doppler = spectra.pop('doppler')
-        times = np.array([times, times + dt.timedelta(seconds=5)]).T.flatten()
-    
+
+        import nvector as nv
+        wgs84 = nv.FrameE(name='WGS84')
+        mcm = wgs84.GeoPoint(latitude=-77.8564, longitude=166.6881, z=0, degrees=True)
+        zsp = wgs84.GeoPoint(latitude=-90, longitude=0, z=0, degrees=True)
+        mcm_zsp = np.sqrt(np.sum(mcm.delta_to(zsp).pvector ** 2)) / 1E3
         if op.geophys:
-            import nvector as nv
-            wgs84 = nv.FrameE(name='WGS84')
             R = 6371
-            mcm = wgs84.GeoPoint(latitude=-77.51, longitude=166.40, z=0, degrees=True)
-            zsp = wgs84.GeoPoint(latitude=-90, longitude=0, z=0, degrees=True)
-            mcm_zsp = np.sqrt(np.sum(mcm.delta_to(zsp).pvector ** 2)) / 1E3
             d0 = mcm_zsp / 2
             h_p = np.sqrt( (ranges / 2) ** 2 - (mcm_zsp / 2) ** 2)
             r_d0 = np.sqrt( R ** 2 - d0 ** 2)
             alts = h_p - (R - r_d0)
             y_ax = alts
-            ylabel = 'Virt. Ht (km)'
-            ylim = (100, 800)
+            ylabel = 'Vht (km)'
+            ylim = (0, 1000)
+            width = 60
         else:
             y_ax = ranges
-            ylabel = 'Virt. Rg. (km)'
-            ylim = (1400, 1700)
+            ylabel = 'Rg (km)'
+            ylim = (1000, 2000)
+            width = 60
 
+        times = np.array([times, times + dt.timedelta(seconds=width)]).T.flatten()
+    
         for key, val in spectra.items():
             tdim = val.shape[0]
             vals_ext = np.zeros((tdim * 2, val.shape[1])) * np.nan
@@ -201,26 +197,15 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
             spectra[key] = vals_ext
     
         # Normalize power
-        if use_int_pwr:
-            A = spectra['int_pwr'].copy()
-            A -= 220  # Subtract off noise floor
-            A /= 100  # Guessing high power = 100
-            A[A < 0] = 0 
-            A[A > 1] = 1 
-        else:  # use max power
-            A = spectra['max_pwr_db'].copy()
-            """
-            A = 10 ** (A / 10)  # Convert to units of linear power 
-            normfac = 10
-            A /= normfac  # normalize to X linear power units (10+ is good)
-            A[A > 1] = 1  # Saturate above normalization
-            """
-
+        A = spectra['max_pwr_db'].copy()
         sortind = np.argsort(times)
 
         # Set plot labels
         ax[ind].grid(which='both', linestyle='--')
         ax[ind].set_ylabel(('%2.2f MHz\n' + ylabel) % freq)
+        
+        # Plot McMurdo-Pole distance
+        ax[ind].plot([tmin, tmax], [mcm_zsp, mcm_zsp], '--m', linewidth=0.8)
 
         if ind == len(freqs) - 1:
             ax[ind].set_xlabel('Time (UT)')
@@ -235,7 +220,7 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
             plotvals = spectra['dop_vel'].copy()[sortind, :]
             plotvals[plotvals == 0] *= np.nan
             cmap = plt.get_cmap('seismic')
-            norm = matplotlib.colors.Normalize(vmin=-500, vmax=500)
+            norm = matplotlib.colors.Normalize(vmin=-400, vmax=400)
             colorlabel = 'Doppler velocity (m/s)'
             title = 'Range-Time-Doppler'
 
@@ -243,7 +228,7 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
             plotvals = A[sortind, :]
             plotvals[plotvals == 0] *= np.nan
             cmap = plt.get_cmap('gist_heat')
-            norm = matplotlib.colors.Normalize(vmin=5, vmax=10)
+            norm = matplotlib.colors.Normalize(vmin=5, vmax=8)
             colorlabel = 'Intensity (dB)'
             title = 'Range-Time-Intensity'
 
@@ -268,12 +253,18 @@ def plot(in_fname, plot_fname=None, use_int_pwr=False):
 
     fig.suptitle(times[0].strftime('%Y-%m-%d ') + title)
 
-    figdir = os.path.join(
+    # Plot or save figures
+    fig_fname = os.path.join(
         op.plotdir, times[0].strftime('rtd_%Y%b%d.png'),
     )
-    plt.show()
-    plt.savefig(figdir)
-    print('Saving to %s'% figdir)
+    if len(freqs) > 0:
+        if op.noplot:
+            if os.path.isfile(fig_fname):
+                os.remove(fig_fname)
+            plt.savefig(fig_fname)
+            print('Saving to %s'% fig_fname)
+        else:
+            plt.show()
 
 
 if __name__ == '__main__':
@@ -293,11 +284,7 @@ if __name__ == '__main__':
         help='''Channel name of data to analyze. (default: %(default)s)'''
     )   
     parser.add_argument(
-        '-x', '--restart', action='store_true', default=False,
-        help='''Repeat processing for all files.''',
-    )
-    parser.add_argument(
-        '-g', '--geophys', action='store_true', default=True,
+        '-g', '--geophys', action='store_true', default=False,
         help='''Use derived geophysical parameters instead of raw quantities (e.g. alt instead of range).''',
     )
     parser.add_argument(
@@ -309,12 +296,8 @@ if __name__ == '__main__':
         help='''Choose whether to plot doppler or power on colour axis''',
     )
     parser.add_argument(
-        '-tmin', '--tmin', default=None,
-        help='''Min plot time (hour)''',
-    )
-    parser.add_argument(
-        '-tmax', '--tmax', default=None,
-        help='''max plot time (hour)''',
+        '-x', '--restart', action='store_true', default=False,
+        help='''Repeat processing for all files.''',
     )
     parser.add_argument(
         '-fmin', '--fmin', default=None,
@@ -324,8 +307,15 @@ if __name__ == '__main__':
         '-fmax', '--fmax', default=None,
         help='''Max frequency (MHz)''',
     )
-
+    parser.add_argument(
+        '-tmin', '--tmin', default=None,
+        help='''Min plot time (hour)''',
+    )
+    parser.add_argument(
+        '-tmax', '--tmax', default=None,
+        help='''max plot time (hour)''',
+    )
+    
     op = parser.parse_args()
     op.datadir = os.path.abspath(op.datadir)
-
     op = save_daily_files(op)
