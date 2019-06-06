@@ -14,7 +14,6 @@ from argparse import ArgumentParser
 Plot multi-frequency returns as a function of altitude and time
 """
 
-
 def save_daily_files(op):
 
     op.chdir = os.path.join(op.datadir, os.path.join('prc_analysis', op.ch))
@@ -44,66 +43,53 @@ def save_daily_files(op):
             with open(fname, 'rb') as f:
                 meta[freq] = pickle.load(f)
 
-    # Go through individual spectra files and process them into daily files
+    # Clean up input data directory names
     keys = 'time', 'range', 'doppler', 'pwr'
     dirnames = [os.path.join(specdir, dn) for dn in os.listdir(specdir)]
     dirnames = [dn for dn in dirnames if os.path.isdir(dn)]
     dirnames.sort()
+
+    # Go through individual spectra files and process them into daily files
     out_fname_fmt = os.path.join(op.outdir, '%Y%b%d_analysis.pkl')
-    if op.restart:
+    if op.reproc:
+        preproc_spectra(dirnames, meta, out_fname_fmt)
+
+    # Ignore days outside the limits 
+    good_dirn = []
+    if op.daylim:
         for dirn in dirnames:
-            nfiles = len(glob.glob(os.path.join(dirn, '*.pkl')))
-            print('Processing %s (%i files)' % (dirn, nfiles))
             day = dt.datetime.strptime(dirn.split('/')[-1], '%Y%m%d')
-
-            # Set up the data holder here 
-            data = {}  
-            for freq, vals in meta.items():
-                data[freq] = {}
-                data[freq]['time'] = []
-                data[freq]['range'] = vals['range']
-                data[freq]['doppler'] = vals['doppler']            
-
-            for fn in os.listdir(dirn):
-                # Get frequencies and times from the filename
-                freq = float(fn.split('_')[0]) 
-                tod = dt.datetime.strptime(fn.split('_')[2], '%H%M%S')
-                data[freq]['time'].append(
-                    day + dt.timedelta(
-                        hours=tod.hour, 
-                        minutes=tod.minute, 
-                        seconds=tod.second,
-                    )
-                )
-
-                # load range, doppler and intensity
-                with open(os.path.join(dirn, fn), 'rb') as f:
-                    spec = pickle.load(f)
-                for k, v in spec.items():
-                    try:
-                        data[freq][k].append(np.squeeze(v.toarray()))
-                    except:
-                        data[freq][k] = [np.squeeze(v.toarray()),]
-
-            # Save daily files (concatenated spectra)
-            out_fname = day.strftime(out_fname_fmt)
-            with open(out_fname, 'wb') as f:
-                print('Writing to %s' % out_fname)
-                pickle.dump(data, f)
-    print('\n\n')
+            if (day >= op.startday) and (day <= op.endday):
+                good_dirn.append(dirn)
 
     # Plot the pre-processed output
-    for dirn in dirnames:
+    for dirn in good_dirn:
         nfiles = len(glob.glob(os.path.join(dirn, '*.pkl')))
-        print('Plotting %s (%i files)' % (dirn, nfiles))
+        print('Loading %s (%i files)' % (dirn, nfiles))
         day = dt.datetime.strptime(dirn.split('/')[-1], '%Y%m%d')
-        plot(day.strftime(out_fname_fmt), op)
-    return op
+        with open(day.strftime(out_fname_fmt), 'rb') as f:
+            dl = pickle.load(f)
+
+        if op.daily:
+            plot(dl, op)
+        else:
+            # Concatenate daily files
+            if 'data' in dir():
+                for key, val in dl.items():
+                    for k, v in val.items():
+                        if isinstance(v, list):
+                            if (k in data[key].keys()):
+                                data[key][k].extend(v)
+                            else:
+                                data[key][k] = v
+            else:
+                data = dl
+   
+    if not op.daily: 
+        plot(data, op)
 
 
-def plot(in_fname, op, plot_fname=None):
-    with open(in_fname, 'rb') as f:
-        data = pickle.load(f)
+def plot(data, op, plot_fname=None):
     params = {
         'font.size': 13,
     }
@@ -117,7 +103,7 @@ def plot(in_fname, op, plot_fname=None):
         for k, v in spectra.items():
             spectra[k] = np.array(v)
 
-        min_cts = 25  # require at least this many counts
+        min_cts = 15  # require at least this many counts
         if ('int_pwr' in spectra.keys()) and (spectra['int_pwr'].shape[0] > min_cts):
             freqs.append(freq)
             # figure out time limits along the way
@@ -128,6 +114,7 @@ def plot(in_fname, op, plot_fname=None):
             if max_t > tmax:
                 tmax = max_t
     freqs = np.array(freqs)
+
     if op.fmin:
         freqs = freqs[freqs > np.float(op.fmin)]
     if op.fmax:
@@ -149,7 +136,7 @@ def plot(in_fname, op, plot_fname=None):
 
     # Abort if no data 
     if freqs.shape[0] == 0:
-        print('No spectra found in %s' % in_fname)
+        print('aborting')
         return
 
     # Then plot
@@ -179,8 +166,8 @@ def plot(in_fname, op, plot_fname=None):
             r_d0 = np.sqrt( R ** 2 - d0 ** 2)
             alts = h_p - (R - r_d0)
             y_ax = alts
-            ylabel = 'Vht (km)'
-            ylim = (0, 1000)
+            ylabel = 'vHt (km)'
+            ylim = (0, 800)
             width = 60
         else:
             y_ax = ranges
@@ -204,12 +191,14 @@ def plot(in_fname, op, plot_fname=None):
         ax[ind].grid(which='both', linestyle='--')
         ax[ind].set_ylabel(('%2.2f MHz\n' + ylabel) % freq)
         
-        # Plot McMurdo-Pole distance
-        ax[ind].plot([tmin, tmax], [mcm_zsp, mcm_zsp], '--m', linewidth=0.8)
+        if not op.geophys:
+            # Plot McMurdo-Pole distance
+            ax[ind].plot([tmin, tmax], [mcm_zsp, mcm_zsp], '--m', linewidth=0.8)
 
         if ind == len(freqs) - 1:
+            fmstr = '%d %b' if op.daylim else '%H:%M'
             ax[ind].set_xlabel('Time (UT)')
-            ax[ind].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            ax[ind].xaxis.set_major_formatter(mdates.DateFormatter(fmstr))
             fig.autofmt_xdate()
         else:
             ax[ind].set_xlabel('')
@@ -251,11 +240,21 @@ def plot(in_fname, op, plot_fname=None):
     cbar = plt.colorbar(im, cax=cax)
     cbar.set_label(colorlabel)
 
-    fig.suptitle(times[0].strftime('%Y-%m-%d ') + title)
+    if op.daylim:
+        fig.suptitle('%s to %s %s' % (\
+            times[0].strftime('%Y-%m-%d'),
+            times[-1].strftime('%Y-%m-%d'),
+            title,
+        ))
+    else:
+        fig.suptitle(times[0].strftime('%Y-%m-%d ') + title)
 
     # Plot or save figures
+    timestr = times[0].strftime('%Y%b%d')
+    if not op.daily:
+        timestr += times[-1].strftime('_to_%Y%b%d')
     fig_fname = os.path.join(
-        op.plotdir, times[0].strftime('rtd_%Y%b%d.png'),
+        op.plotdir, '%s_%s.png' % (op.type, timestr),
     )
     if len(freqs) > 0:
         if op.noplot:
@@ -266,6 +265,48 @@ def plot(in_fname, op, plot_fname=None):
         else:
             plt.show()
 
+
+def preproc_spectra(dirnames, meta, out_fname_fmt):
+    for dirn in dirnames:
+        nfiles = len(glob.glob(os.path.join(dirn, '*.pkl')))
+        print('Processing %s (%i files)' % (dirn, nfiles))
+        day = dt.datetime.strptime(dirn.split('/')[-1], '%Y%m%d')
+
+        # Set up the data holder here 
+        data = {}  
+        for freq, vals in meta.items():
+            data[freq] = {}
+            data[freq]['time'] = []
+            data[freq]['range'] = vals['range']
+            data[freq]['doppler'] = vals['doppler']            
+
+        for fn in os.listdir(dirn):
+            # Get frequencies and times from the filename
+            freq = float(fn.split('_')[0]) 
+            tod = dt.datetime.strptime(fn.split('_')[2], '%H%M%S')
+            data[freq]['time'].append(
+                day + dt.timedelta(
+                    hours=tod.hour, 
+                    minutes=tod.minute, 
+                    seconds=tod.second,
+                )
+            )
+
+            # load range, doppler and intensity
+            with open(os.path.join(dirn, fn), 'rb') as f:
+                spec = pickle.load(f)
+            for k, v in spec.items():
+                try:
+                    data[freq][k].append(np.squeeze(v.toarray()))
+                except:
+                    data[freq][k] = [np.squeeze(v.toarray()),]
+
+        # Save daily files (concatenated spectra)
+        out_fname = day.strftime(out_fname_fmt)
+        with open(out_fname, 'wb') as f:
+            print('Writing to %s' % out_fname)
+            pickle.dump(data, f)
+    print('\n\n')
 
 if __name__ == '__main__':
     import matplotlib
@@ -296,7 +337,7 @@ if __name__ == '__main__':
         help='''Choose whether to plot doppler or power on colour axis''',
     )
     parser.add_argument(
-        '-x', '--restart', action='store_true', default=False,
+        '-x', '--reproc', action='store_true', default=False,
         help='''Repeat processing for all files.''',
     )
     parser.add_argument(
@@ -315,7 +356,18 @@ if __name__ == '__main__':
         '-tmax', '--tmax', default=None,
         help='''max plot time (hour)''',
     )
+    parser.add_argument(
+        '-d', '--daylim', default=None,
+        help='''plot days (yyyy,mm,dd, yyyy,mm,dd)''',
+    )
+    parser.add_argument(
+        '-dy', '--daily', action='store_true', default=False,
+        help='''make separate daily plots instead of one long one''',
+    )
     
     op = parser.parse_args()
+    tn = [int(d) for d in op.daylim.split(',')]
+    op.startday = dt.datetime(*tn[:3])
+    op.endday = dt.datetime(*tn[3:])
     op.datadir = os.path.abspath(op.datadir)
-    op = save_daily_files(op)
+    save_daily_files(op)
