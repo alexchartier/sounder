@@ -22,7 +22,6 @@ python analyze_chirp.py /data/chirp -c hfrx -l 10000 -s 0 -n freqstep.log
 
 1. Create loopback calibration code
 2. Make sure each day freq_stepper.log goes into a different day file
-3. Store the Ms from analyze_chirp and stack them up to make ionograms
 
 
 ################################
