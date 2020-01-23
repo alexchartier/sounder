@@ -24,6 +24,7 @@ from fractions import Fraction
 from itertools import chain, cycle, islice, repeat
 from subprocess import call
 from textwrap import TextWrapper, dedent, fill
+import shutil
 
 import numpy as np
 import pytz
@@ -665,6 +666,22 @@ class Thor(object):
         if not os.path.isdir(op.datadir):
             os.makedirs(op.datadir)
 
+        # Copy freq_list into the data directory
+        if op.freq_list_fname:
+            for ch in op.channel_names:
+                chdir = os.path.join(op.datadir,  ch)
+                try:
+                    os.makedirs(chdir)
+                except:
+                    None
+                try:
+                    shutil.copy2(
+                        op.freq_list_fname, 
+                        os.path.join(chdir, 'freq_list.txt')
+                    )
+                except:
+                    None
+
         # get UHD USRP source
         usrp = self._usrp_setup()
 
@@ -887,12 +904,21 @@ class Thor(object):
         # (start too soon and device buffers might not yet be flushed)
         # (start too late and device might not be able to start in time)
         while (ltts - usrp.get_time_last_pps().get_real_secs()) > 1:
+            print(ltts)
+            print(usrp.get_time_last_pps().get_real_secs())
             time.sleep(0.1)
         fg.start()
 
         # Step through freqs
-        freqstep_log_fname = os.path.join(op.datadir, op.channel_names[ko]) + '/freqstep.log'
-        freq_stepper.step(usrp, op, freq_list_fname=op.freq_list_fname, out_fname=freqstep_log_fname)
+
+        basedir ='/'.join(op.freq_list_fname.split('/')[:-2]) 
+        lock_fname = os.path.join(basedir, 'logs/gps_lock.log')
+
+        freq_stepper.step(
+            usrp, op, 
+            freq_list_fname=op.freq_list_fname,
+            lock_fname=lock_fname,
+        )
 
         # wait until flowgraph stops
         try:
@@ -1245,7 +1271,7 @@ def _add_time_group(parser):
         45:  12
         (default: None)''',
     )   
-   
+
     return parser
 
 
@@ -1255,8 +1281,8 @@ def _build_thor_parser(Parser, *args):
     formatter = RawDescriptionHelpFormatter(scriptname)
     width = formatter._width
 
-    title = 'THOR (The Haystack Observatory Recorder)'
-    copyright = 'Copyright (c) 2017 Massachusetts Institute of Technology'
+    title = 'Odin (son of The Haystack Observatory Recorder)'
+    copyright = 'Copyright (c) 2019 Johns Hopkins APL, 2017 Massachusetts Institute of Technology'
     shortdesc = 'Record data from synchronized USRPs in DigitalRF format.'
     desc = '\n'.join((
         '*'*width,
@@ -1321,7 +1347,7 @@ def _build_thor_parser(Parser, *args):
 
     parser.add_argument(
         '--version', action='version',
-        version='THOR 3.1, using digital_rf {0}'.format(drf.__version__),
+        version='Odin 1, using digital_rf {0}'.format(drf.__version__),
     )
     parser.add_argument(
         '-q', '--quiet', dest='verbose', action='store_false',

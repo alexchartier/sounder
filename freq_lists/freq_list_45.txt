@@ -1,6 +1,0 @@
-freq_list
-shift time (seconds): shift frequency (MHz)
-
-0: 4.5
-
-

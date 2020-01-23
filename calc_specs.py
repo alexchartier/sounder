@@ -12,14 +12,12 @@ tx_freq = 33E6
 """
 
 # inputs  (first three MUST match in Tx and Rx)
-sample_rate = 5E5
-baud_oversampling = 10  
-code_len_bauds = 2000  # (-l)
+code_len_bauds = 1000  # (-l)
+sample_rate = 5E4
 
-nranges = 2000  # (-r)
 freq_dwell_time = 5   # for chirpsounder the radar sits on a specified frequency until it moves to the next one
-tx_freq = 10E6
-freq_list = np.linspace(2, 15, 12) * 1E6
+freq_list = np.array([2, 3.2, 4.4, 5.6, 6.8, 8., 9.2, 10.4, 11.6, 12.8, 14., 15.2])
+freq_list *= 1E6
 
 # Standard stuff
 sample_size_bytes = 4
@@ -30,45 +28,44 @@ terabyte_units = 1E12  # bytes
 
 # First of all, print the inputs
 an_len_samples = freq_dwell_time * sample_rate
-tx_wlen = 3E8 / tx_freq
 sample_len_secs = 1 / sample_rate
-baud_len_secs = sample_len_secs * baud_oversampling 
-code_len_samples = code_len_bauds * baud_oversampling
-code_len_secs = code_len_bauds * baud_oversampling / sample_rate
+code_len_secs = code_len_bauds  / sample_rate
 
+np.set_printoptions(precision=3)
 print('\n\n*** specified inputs ***')
-print("carrier_freq: %2.1f MHz (wavelength: %1.1f m)" % (tx_freq / 1E6, tx_wlen))
-print("Sample rate: %2.1f MHz" % (sample_rate / 1e6))
-print("Bauds: %i (%ix oversampled), baud length: %1.2f microseconds" % (code_len_bauds, baud_oversampling, baud_len_secs * 1E6))
-print("Code length: %2.2f secs" % code_len_secs)
-print("Ranges analyzed: %i" % nranges)
+print("carrier_freq (MHz)")
+print(freq_list / 1E6)
+print('Ne list (1E11 electrons/m3): %s ' % str(1.24 * (freq_list/1E6) ** 2 / 10)) 
+print('Ne 30deg incidence (1E11 electrons/m3) list: %s' % str(1.24 * (freq_list/1E6) ** 2 / 10 * np.cos(np.deg2rad(60)))) 
+print("wavelength (m)") 
+print(3E8 / freq_list)
+print("Sample rate: %2.2f kHz" % (sample_rate / 1e3))
+print("Bauds: %i" % (code_len_bauds))
+print("Code length: %2.3f secs" % code_len_secs)
 print('Analysis length: %1.1f seconds, %i samples ' % (freq_dwell_time, an_len_samples))
-print('Frequency list: %s' % str(freq_list / 1E6))
-print('Ne list: %s x 1E10 electrons/m3' % str(1.24 * (freq_list/1E6) ** 2)) 
-print('Ne 30deg incidence list: %s x 1E10 electrons/m3' % str(1.24 * (freq_list/1E6) ** 2 / np.cos(np.deg2rad(60)))) 
-print('\n\n*** expected outputs at %2.2f MHz (***' % (tx_freq / 1E6))
 
 # How much velocity resolution to expect?
-print('Transmitter bandwidth: %2.2f kHz\n' % (sample_rate / (code_len_bauds / baud_oversampling) / 1E3))
-tx_wlen = 3E8 / tx_freq
-doppler_bandwidth_hz = sample_rate / (baud_oversampling * code_len_bauds)
+print('Transmitter bandwidth: %2.2f kHz\n' % (sample_rate / 1E3))
+tx_wlen = 3E8 / freq_list
+doppler_bandwidth_hz = sample_rate / code_len_bauds
 doppler_res_hz = doppler_bandwidth_hz / (freq_dwell_time / code_len_secs)
-print('Doppler bandwidth: %2.2f Hz (%2.2f m/s) \nDoppler resolution: %2.2f Hz (%2.2f m/s)' \
-	% (doppler_bandwidth_hz, doppler_bandwidth_hz * tx_wlen / 2, doppler_res_hz, doppler_res_hz * tx_wlen / 2))
+print('Doppler bandwidth: %2.2f Hz' % doppler_bandwidth_hz)
+print('Doppler bandwidth (m/s)')
+print(doppler_bandwidth_hz * tx_wlen / 2)
+print('Doppler resolution (m/s)')
+print(doppler_res_hz * tx_wlen / 2)
 
 # How much range resolution to expect?
 sample_len_secs = 1 / sample_rate
-baud_len_secs = sample_len_secs * baud_oversampling 
-rangegate = baud_len_secs * 3e8
-range_res = rangegate / 2  # Not sure why this is the case - see paper
+rangegate = sample_len_secs * 3e8
+alt_res = rangegate / 2  
 print('\nrange aliasing occurs at %1.1f km' % (code_len_secs * 3E8 / 1E3))
-print('rangegate size %1.1f km?' % (baud_len_secs * 3E5))
-print('altitude resolution (1/2 rangegate) at %1.1f MHz sampling: %2.2f km' % (sample_rate / 1E6,  range_res / 1E3))
-
+print('rangegate size %2.2f km' % (rangegate /1E3))
 
 # How much data to expect?
-tera_day = sample_rate * sample_size_bytes * day_secs / terabyte_units / baud_oversampling
+tera_day = sample_rate * sample_size_bytes * day_secs / terabyte_units 
 tera_year = tera_day * 365
-print("%2.2f terabytes/day, %2.2f terabytes/year for %2.1f MHz sampling (based on %i byte samples and %ix oversampling)" % (tera_day, tera_year, sample_rate / 1E6, sample_size_bytes, baud_oversampling))
+print("%2.2f terabytes/day, %2.2f terabytes/year for %2.1f kHz sampling (based on %i byte samples)" \
+        % (tera_day, tera_year, sample_rate / 1E3, sample_size_bytes))
 
 print('\n\n')
