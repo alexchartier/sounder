@@ -7,10 +7,11 @@ current_time="`date +%Y/%m/%d_%H:%M`";
 
 export sdir=/home/alex/sounder/odin.py 
 export outdir=/data 
-export chan=mcm_crary 
+export chan=mp_seven 
 export freq_list='/home/alex/sounder/freq_lists/mcm_ops.flist'
 export rate=5E5
 export type='sc16'
+export ipaddr='192.168.10.2'
 
 # Check output directory size as a function of time
 sz1=`df $outdir/$chan |  tail -n1 | awk '{print $3}'`
@@ -20,7 +21,7 @@ sz2=`df $outdir/$chan |  tail -n1 | awk '{print $3}'`
 # Start the receiver code if the directory is not getting bigger
 if [ $sz1 == $sz2 ]; then
     echo "Directory not getting bigger. Launching odin at ${current_time}"
-    python $sdir -m 192.168.10.12 -d "A:A" -c $chan --type $type -f $freq_list -r $rate -i 10 $outdir &
+    python $sdir -m $ipaddr -d "A:A" -c $chan --type $type -f $freq_list -r $rate -i 10 $outdir
 else :
     pid="`pgrep -x python`"
     echo "odin.py running at ${current_time} as pid ${pid}"

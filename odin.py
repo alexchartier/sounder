@@ -904,6 +904,8 @@ class Thor(object):
         # (start too soon and device buffers might not yet be flushed)
         # (start too late and device might not be able to start in time)
         while (ltts - usrp.get_time_last_pps().get_real_secs()) > 1:
+            print(ltts)
+            print(usrp.get_time_last_pps().get_real_secs())
             time.sleep(0.1)
         fg.start()
 

@@ -138,7 +138,7 @@ def set_dev_time(usrp):
     
     # while usrp.get_time_last_pps().get_real_secs() + 1 != usrp.get_mboard_sensor("gps_time").to_real():
     while usrp.get_time_last_pps().get_real_secs() != usrp.get_mboard_sensor("gps_time").to_real():
-        print(usrp.get_time_last_pps().get_real_secs() + 1)
+        print(usrp.get_time_last_pps().get_real_secs())
         print(usrp.get_mboard_sensor("gps_time").to_real())
         # 1)  Poll on usrp->get_mboard_sensor("gps_locked") until it returns true
         while not usrp.get_mboard_sensor("gps_locked", 0).to_bool():
@@ -155,22 +155,22 @@ def set_dev_time(usrp):
         time.sleep(0.2)
 
         # 4)  Use "usrp->set_time_next_pps(uhd::time_spec_t(usrp->get_mboard_sensor("gps_time").to_int()+1));" to set the time
-        usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 1))
+        usrp.set_time_next_pps(uhd.time_spec_t(usrp.get_mboard_sensor("gps_time").to_int() + 2))
 
         # 5)  Poll on usrp->get_time_last_pps() until a change is seen.
         pps = usrp.get_time_last_pps()
         while usrp.get_time_last_pps() == pps:
+            print('poll 5')
             time.sleep(0.1)
 
         # 6)  Sleep 200ms (allow NMEA string to propagate)
         time.sleep(0.2)
+        print('USRP last PPS = %i, GPSDO = %i' % (\
+            usrp.get_time_last_pps().get_real_secs(), 
+            usrp.get_mboard_sensor("gps_time").to_real()
+        ))
 
-    print(
-        'time set: USRP = %i, GPSDO = %i' % (\
-        usrp.get_time_last_pps().get_real_secs() + 1, 
-        usrp.get_mboard_sensor("gps_time").to_real()
-    ))
-
+    print('time set:')
 
 def get_freq_list(freq_list_fname):
     freq_list = {}
