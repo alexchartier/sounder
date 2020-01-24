@@ -7,6 +7,7 @@ import datetime as dt
 import glob
 import matplotlib.dates as mdates
 import matplotlib.colors
+import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 
 
@@ -63,30 +64,39 @@ def save_daily_files(op):
                 good_dirn.append(dirn)
 
     # Plot the pre-processed output
-    for dirn in good_dirn:
-        nfiles = len(glob.glob(os.path.join(dirn, '*.pkl')))
-        print('Loading %s (%i files)' % (dirn, nfiles))
-        day = dt.datetime.strptime(dirn.split('/')[-1], '%Y%m%d')
-        with open(day.strftime(out_fname_fmt), 'rb') as f:
-            dl = pickle.load(f)
-
-        if op.daily:
+    if op.daily:
+        for dirn in good_dirn:
+            dl = load_daily(dirn, out_fname_fmt)   
             plot(dl, op)
-        else:
-            # Concatenate daily files
-            if 'data' in dir():
-                for key, val in dl.items():
-                    for k, v in val.items():
-                        if isinstance(v, list):
-                            if (k in data[key].keys()):
-                                data[key][k].extend(v)
-                            else:
-                                data[key][k] = v
-            else:
-                data = dl
-   
-    if not op.daily: 
+    else:
+        data = concat_files(good_dirn, out_fname_fmt)   
         plot(data, op)
+
+
+def concat_files(good_dirn, out_fname_fmt):
+    # Concatenate daily files
+    for dirn in good_dirn:
+        dl = load_daily(dirn, out_fname_fmt)   
+        if 'data' in dir():
+            for key, val in dl.items():
+                for k, v in val.items():
+                    if isinstance(v, list):
+                        if (k in data[key].keys()):
+                            data[key][k].extend(v)
+                        else:
+                            data[key][k] = v
+        else:
+            data = dl
+    return data
+
+
+def load_daily(dirn, out_fname_fmt):
+    nfiles = len(glob.glob(os.path.join(dirn, '*.pkl')))
+    print('Loading %s (%i files)' % (dirn, nfiles))
+    day = dt.datetime.strptime(dirn.split('/')[-1], '%Y%m%d')
+    with open(day.strftime(out_fname_fmt), 'rb') as f:
+        dl = pickle.load(f)
+    return dl
 
 
 def plot(data, op, plot_fname=None):
@@ -94,146 +104,24 @@ def plot(data, op, plot_fname=None):
         'font.size': 13,
     }
     plt.rcParams.update(params)
+    freqs, tlim = get_freqs_tlim(data, fmin=op.fmin, fmax=op.fmax)
 
-    # First, figure out which frequencies have data
-    freqs = []
-    tmin = dt.datetime(2050, 1, 1)
-    tmax = dt.datetime(1, 1, 1)
-    for freq, spectra in data.items():
-        for k, v in spectra.items():
-            spectra[k] = np.array(v)
-
-        min_cts = 15  # require at least this many counts
-        if ('int_pwr' in spectra.keys()) and (spectra['int_pwr'].shape[0] > min_cts):
-            freqs.append(freq)
-            # figure out time limits along the way
-            min_t = np.min(spectra['time']) 
-            max_t = np.max(spectra['time']) 
-            if min_t < tmin:
-                tmin = min_t
-            if max_t > tmax:
-                tmax = max_t
-    freqs = np.array(freqs)
-
-    if op.fmin:
-        freqs = freqs[freqs > np.float(op.fmin)]
-    if op.fmax:
-        freqs = freqs[freqs < np.float(op.fmax)]
-
-    try:
-        freqs.sort()
-    except:
-        None
-
-    if op.tmin:
-        tmin = tmin.replace(hour=int(op.tmin), minute=0, second=0)
-    if op.tmax:
-        if int(op.tmax) == 24:
-            tmax = tmax + dt.timedelta(days=1)
-            tmax = tmax.replace(hour=0, minute=0, second=0)
-        else:
-            tmax = tmax.replace(hour=int(op.tmax), minute=0, second=0)
-
-    # Abort if no data 
-    if freqs.shape[0] == 0:
-        print('aborting')
-        return
-
-    # Then plot
-    plt.style.use('dark_background')
+    # Set up the subplots
+    if not op.white_bg:
+        plt.style.use('dark_background')
     fig, ax = plt.subplots(len(freqs), 1, figsize=(12, 8))
     if not isinstance(ax, np.ndarray):
         ax = np.array([ax,])
 
+    # Run through frequencies and plot
     for ind, freq in enumerate(freqs[::-1]):
         print('plotting freq %2.2f MHz' % freq)
-        spectra = data[freq]
-
-        # Add endpoints to all the times, fill in with NaNs for non-recorded times
-        ranges = spectra.pop('range')
-        times = spectra.pop('time')
-        doppler = spectra.pop('doppler')
-
-        import nvector as nv
-        wgs84 = nv.FrameE(name='WGS84')
-        mcm = wgs84.GeoPoint(latitude=-77.8564, longitude=166.6881, z=0, degrees=True)
-        zsp = wgs84.GeoPoint(latitude=-90, longitude=0, z=0, degrees=True)
-        mcm_zsp = np.sqrt(np.sum(mcm.delta_to(zsp).pvector ** 2)) / 1E3
-        if op.geophys:
-            R = 6371
-            d0 = mcm_zsp / 2
-            h_p = np.sqrt( (ranges / 2) ** 2 - (mcm_zsp / 2) ** 2)
-            r_d0 = np.sqrt( R ** 2 - d0 ** 2)
-            alts = h_p - (R - r_d0)
-            y_ax = alts
-            ylabel = 'vHt (km)'
-            ylim = (0, 800)
-            width = 60
-        else:
-            y_ax = ranges
-            ylabel = 'Rg (km)'
-            ylim = (1000, 2000)
-            width = 60
-
-        times = np.array([times, times + dt.timedelta(seconds=width)]).T.flatten()
-    
-        for key, val in spectra.items():
-            tdim = val.shape[0]
-            vals_ext = np.zeros((tdim * 2, val.shape[1])) * np.nan
-            vals_ext[np.arange(tdim) * 2, :] = val 
-            spectra[key] = vals_ext
-    
-        # Normalize power
-        A = spectra['max_pwr_db'].copy()
-        sortind = np.argsort(times)
-
-        # Set plot labels
-        ax[ind].grid(which='both', linestyle='--')
-        ax[ind].set_ylabel(('%2.2f MHz\n' + ylabel) % freq)
-        
-        if not op.geophys:
-            # Plot McMurdo-Pole distance
-            ax[ind].plot([tmin, tmax], [mcm_zsp, mcm_zsp], '--m', linewidth=0.8)
-
-        if ind == len(freqs) - 1:
-            fmstr = '%d %b' if op.daylim else '%H:%M'
-            ax[ind].set_xlabel('Time (UT)')
-            ax[ind].xaxis.set_major_formatter(mdates.DateFormatter(fmstr))
-            fig.autofmt_xdate()
-        else:
-            ax[ind].set_xlabel('')
-            ax[ind].set_xticklabels('')
-      
-        # Set colours
-        if op.type == 'doppler':
-            plotvals = spectra['dop_vel'].copy()[sortind, :]
-            plotvals[plotvals == 0] *= np.nan
-            cmap = plt.get_cmap('seismic')
-            norm = matplotlib.colors.Normalize(vmin=-400, vmax=400)
-            colorlabel = 'Doppler velocity (m/s)'
-            title = 'Range-Time-Doppler'
-
-        elif op.type == 'power':
-            plotvals = A[sortind, :]
-            plotvals[plotvals == 0] *= np.nan
-            cmap = plt.get_cmap('gist_heat')
-            norm = matplotlib.colors.Normalize(vmin=5, vmax=8)
-            colorlabel = 'Intensity (dB)'
-            title = 'Range-Time-Intensity'
-
-        # Get rid of NaN alt. entries
-        finind = np.isfinite(y_ax)
-        plotvals = plotvals[:, finind]
-        y_ax = y_ax[finind]
-
-        # Plot 
-        im = ax[ind].pcolormesh(
-            times[sortind], y_ax, plotvals.T, 
-            cmap=cmap, norm=norm, shading='flat', 
+        xlabels = True if ind == len(freqs) - 1 else False
+        times = data[freq].pop('time')
+        im, colorlabel = plt_frq(
+            data[freq], fig, ax[ind], tlim, freq=freq, plottype=op.type,
+            xlabels=xlabels, vht=op.virt_ht, daylim=op.daylim, white_bg=op.white_bg,
         )
-        ax[ind].set_xlim(tmin, tmax)
-        ax[ind].set_ylim(ylim)
-        ax[ind].grid()
 
     fig.subplots_adjust(right=0.8)
     cax = fig.add_axes([0.85, 0.2, 0.03, 0.67])
@@ -241,13 +129,12 @@ def plot(data, op, plot_fname=None):
     cbar.set_label(colorlabel)
 
     if op.daylim:
-        fig.suptitle('%s to %s %s' % (\
+        fig.suptitle('%s to %s' % (\
             times[0].strftime('%Y-%m-%d'),
             times[-1].strftime('%Y-%m-%d'),
-            title,
         ))
     else:
-        fig.suptitle(times[0].strftime('%Y-%m-%d ') + title)
+        fig.suptitle(times[0].strftime('%Y-%m-%d '))
 
     # Plot or save figures
     timestr = times[0].strftime('%Y%b%d')
@@ -257,13 +144,93 @@ def plot(data, op, plot_fname=None):
         op.plotdir, '%s_%s.png' % (op.type, timestr),
     )
     if len(freqs) > 0:
-        if op.noplot:
+        if op.show:
+            plt.show()
+        else:
             if os.path.isfile(fig_fname):
                 os.remove(fig_fname)
             plt.savefig(fig_fname)
             print('Saving to %s'% fig_fname)
-        else:
-            plt.show()
+
+
+def plt_frq(spectra, fig, ax, tlim, freq=None, plottype='power', xlabels=False, vht=False, daylim=False, white_bg=True):
+    # Add endpoints to all the times, fill in with NaNs for non-recorded times
+    ranges = spectra['range']
+    times = spectra['time']
+    alts = calc_vht(ranges)
+    doppler = spectra['doppler']
+
+    if vht:
+        y_ax = alts
+        ylabel = 'vHt (km)'
+        ylim = (0, 800)
+        width = 60
+    else:
+        y_ax = ranges
+        ylabel = 'Rg (km)'
+        ylim = (op.rmin, op.rmax)
+        width = 60
+
+    times = np.array([times, times + dt.timedelta(seconds=width)]).T.flatten()
+
+    for key in ['max_pwr_db', 'dop_vel']:
+        val = spectra[key]
+        tdim = val.shape[0]
+        vals_ext = np.zeros((tdim * 2, val.shape[1])) * np.nan
+        vals_ext[np.arange(tdim) * 2, :] = val 
+        spectra[key] = vals_ext
+
+    # Normalize power
+    A = spectra['max_pwr_db'].copy()
+    sortind = np.argsort(times)
+
+    # Set plot labels
+    ax.grid(which='both', linestyle='--')
+    ylabel = ('%2.2f MHz\n' + ylabel) % freq if freq else ylabel
+    ax.set_ylabel(ylabel)
+    
+    if xlabels:
+        fmstr = '%d %b' if daylim else '%H:%M'
+        ax.set_xlabel('Time (UT)')
+        ax.xaxis.set_major_formatter(mdates.DateFormatter(fmstr))
+        fig.autofmt_xdate()
+    else:
+        ax.set_xlabel('')
+        ax.set_xticklabels('')
+  
+    # Set colours
+    if plottype == 'doppler':
+        plotvals = spectra['dop_vel'].copy()[sortind, :]
+        plotvals[plotvals == 0] *= np.nan
+        cmapn = 'seismic_r' if white_bg else 'seismic'
+        cmap = plt.get_cmap(cmapn)
+        norm = matplotlib.colors.Normalize(vmin=-400, vmax=400)
+        colorlabel = 'Doppler velocity (m/s)'
+        title = 'Range-Time-Doppler'
+
+    elif plottype == 'power':
+        plotvals = A[sortind, :]
+        plotvals[plotvals == 0] *= np.nan
+        cmapn = 'gist_heat_r' if white_bg else 'gist_heat'
+        cmap = plt.get_cmap(cmapn)
+        norm = matplotlib.colors.Normalize(vmin=5, vmax=10)
+        colorlabel = 'Intensity (dB)'
+        title = 'Range-Time-Intensity'
+
+    # Get rid of NaN alt. entries
+    finind = np.isfinite(y_ax)
+    plotvals = plotvals[:, finind]
+    y_ax = y_ax[finind]
+
+    # Plot 
+    im = ax.pcolormesh(
+        times[sortind], y_ax, plotvals.T, 
+        cmap=cmap, norm=norm, shading='flat', 
+    )
+    ax.set_xlim(tlim[0], tlim[1])
+    ax.set_ylim(ylim)
+    ax.grid()
+    return im, colorlabel
 
 
 def preproc_spectra(dirnames, meta, out_fname_fmt):
@@ -308,6 +275,92 @@ def preproc_spectra(dirnames, meta, out_fname_fmt):
             pickle.dump(data, f)
     print('\n\n')
 
+
+def get_freqs_tlim(data, fmin=None, fmax=None):
+    # figure out which frequencies have data
+    freqs = []
+    tmin = dt.datetime(2050, 1, 1)
+    tmax = dt.datetime(1, 1, 1)
+    for freq, spectra in data.items():
+        for k, v in spectra.items():
+            spectra[k] = np.array(v)
+
+        min_cts = 90  # require at least this many counts
+        if ('int_pwr' in spectra.keys()) and (spectra['int_pwr'].shape[0] > min_cts):
+            freqs.append(freq)
+            # figure out time limits along the way
+            min_t = np.min(spectra['time']) 
+            max_t = np.max(spectra['time']) 
+            if min_t < tmin:
+                tmin = min_t
+            if max_t > tmax:
+                tmax = max_t
+    freqs = np.array(freqs)
+
+    if fmin:
+        freqs = freqs[freqs >= np.float(op.fmin)]
+    if fmax:
+        freqs = freqs[freqs <= np.float(op.fmax)]
+
+    try:
+        freqs.sort()
+    except:
+        None
+
+    if op.tmin:
+        tmin = tmin.replace(hour=int(op.tmin), minute=0, second=0)
+    else:
+        tmin = tmin.replace(hour=0, minute=0, second=0)
+    if op.tmax:
+        if int(op.tmax) == 24:
+            tmax = tmax + dt.timedelta(days=1)
+            tmax = tmax.replace(hour=0, minute=0, second=0)
+        else:
+            tmax = tmax.replace(hour=int(op.tmax), minute=0, second=0)
+
+    else:
+        tmax = tmax.replace(hour=23, minute=59, second=59)
+    # Abort if no data 
+    if freqs.shape[0] == 0:
+        print('aborting')
+        return
+
+    tlim = tmin, tmax
+    return freqs, tlim
+
+
+def calc_vht(ranges):
+    # Calculate distance between McMurdo and Pole
+    mcm_zsp, midpt_depth = calc_dist(0, -77.8564, 166.6881, 0, -90, 0)
+    alts = np.sqrt((ranges / 2) ** 2 - (mcm_zsp / 2) ** 2) - midpt_depth
+    return alts
+
+
+def calc_dist(alt1, lat1, lon1, alt2, lat2, lon2,):
+    import nvector as nv
+    wgs84 = nv.FrameE(name='WGS84')
+    pt1 = wgs84.GeoPoint(latitude=lat1, longitude=lon1, z=alt1, degrees=True)
+    pt2 = wgs84.GeoPoint(latitude=lat2, longitude=lon2, z=alt2, degrees=True)
+
+    # Great circle dist
+    dist_gc = np.sqrt(np.sum(pt1.delta_to(pt2).pvector ** 2)) / 1E3
+
+    # Straight-line dist
+    dist_strt = np.sqrt(np.sum((pt1.to_ecef_vector().pvector - pt2.to_ecef_vector().pvector) ** 2)) / 1E3
+   
+    # midpoint between the two 
+    midpt = nv.GeoPath(pt1, pt2).interpolate(0.5).to_geo_point()
+    midpt_ll = [midpt.latitude, midpt.longitude]
+
+    # dist. from straight-line midpoint up to ground level
+    hypot = np.sqrt(np.sum((pt1.to_ecef_vector().pvector - midpt.to_ecef_vector().pvector) ** 2)) / 1E3
+    midpt_depth = np.sqrt(hypot ** 2 - (dist_strt / 2) ** 2)
+
+    return dist_strt, midpt_depth
+
+
+
+
 if __name__ == '__main__':
     import matplotlib
     # matplotlib.use('Agg')
@@ -325,16 +378,20 @@ if __name__ == '__main__':
         help='''Channel name of data to analyze. (default: %(default)s)'''
     )   
     parser.add_argument(
-        '-g', '--geophys', action='store_true', default=False,
-        help='''Use derived geophysical parameters instead of raw quantities (e.g. alt instead of range).''',
+        '-a', '--virt_ht', action='store_true', default=False,
+        help='''Plot against virtual height instead of range.''',
     )
     parser.add_argument(
-        '-np', '--noplot', action='store_true', default=False,
-        help='''Produce range-doppler plots''',
+        '-s', '--show', action='store_true', default=False,
+        help='''Show the figure instead of saving it''',
     )   
     parser.add_argument(
         '-t', '--type', default='power',
         help='''Choose whether to plot doppler or power on colour axis''',
+    )
+    parser.add_argument(
+        '-wb', '--white_bg', action='store_true', default=False,
+        help='''Plot on a white background''',
     )
     parser.add_argument(
         '-x', '--reproc', action='store_true', default=False,
@@ -357,6 +414,14 @@ if __name__ == '__main__':
         help='''max plot time (hour)''',
     )
     parser.add_argument(
+        '-rmin', '--rmin', default=1300,
+        help='''Min plot range (km)''',
+    )
+    parser.add_argument(
+        '-rmax', '--rmax', default=2000,
+        help='''max plot range (km)''',
+    )
+    parser.add_argument(
         '-d', '--daylim', default=None,
         help='''plot days (yyyy,mm,dd, yyyy,mm,dd)''',
     )
@@ -370,4 +435,6 @@ if __name__ == '__main__':
     op.startday = dt.datetime(*tn[:3])
     op.endday = dt.datetime(*tn[3:])
     op.datadir = os.path.abspath(op.datadir)
+    op.rmin=int(op.rmin)
+    op.rmax=int(op.rmax)
     save_daily_files(op)

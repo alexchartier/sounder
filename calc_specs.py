@@ -13,11 +13,19 @@ tx_freq = 33E6
 
 # inputs  (first three MUST match in Tx and Rx)
 code_len_bauds = 1000  # (-l)
-sample_rate = 5E4
+sample_rate = 1.2E5  # 5E4
 
-freq_dwell_time = 5   # for chirpsounder the radar sits on a specified frequency until it moves to the next one
-freq_list = np.array([2, 3.2, 4.4, 5.6, 6.8, 8., 9.2, 10.4, 11.6, 12.8, 14., 15.2])
-freq_list *= 1E6
+
+freq_dwell_time = 1   # for chirpsounder the radar sits on a specified frequency until it moves to the next one
+#freq_list = np.array([2, 3.2, 4.4, 5.6, 6.8, 8., 9.2, 10.4, 11.6, 12.8, 14., 15.2]) * 1E6
+dene_F = np.arange(0.4, 12.5, 0.4) * 1E11
+freq_list =  9 * np.sqrt(dene_F / np.cos(np.deg2rad(60)))
+"""
+dene_F_min = (freq_list_E.max() / 9) ** 2 * np.cos(np.deg2rad(60))
+dene_F = np.arange(dene_F_min, 1E12, 0.5E11)
+freq_list_F = 9 * np.sqrt(dene_F / np.cos(np.deg2rad(60)))
+"""
+# freq_list = np.linspace(np.sqrt(1.8), np.sqrt(12.7), 30) ** 2
 
 # Standard stuff
 sample_size_bytes = 4
@@ -37,6 +45,7 @@ print("carrier_freq (MHz)")
 print(freq_list / 1E6)
 print('Ne list (1E11 electrons/m3): %s ' % str(1.24 * (freq_list/1E6) ** 2 / 10)) 
 print('Ne 30deg incidence (1E11 electrons/m3) list: %s' % str(1.24 * (freq_list/1E6) ** 2 / 10 * np.cos(np.deg2rad(60)))) 
+print('Ne 10deg incidence (1E11 electrons/m3) list: %s' % str(1.24 * (freq_list/1E6) ** 2 / 10 * np.cos(np.deg2rad(80)))) 
 print("wavelength (m)") 
 print(3E8 / freq_list)
 print("Sample rate: %2.2f kHz" % (sample_rate / 1e3))
@@ -57,10 +66,15 @@ print(doppler_res_hz * tx_wlen / 2)
 
 # How much range resolution to expect?
 sample_len_secs = 1 / sample_rate
-rangegate = sample_len_secs * 3e8
-alt_res = rangegate / 2  
-print('\nrange aliasing occurs at %1.1f km' % (code_len_secs * 3E8 / 1E3))
-print('rangegate size %2.2f km' % (rangegate /1E3))
+rangegate = sample_len_secs * 3e8 / 1E3
+
+from plot_rtd import calc_vht
+rmax = code_len_secs * 3E8  / 1E3
+print('\nrange aliasing occurs at %1.1f km' % (rmax))
+print('rangegate size %2.2f km' % (rangegate))
+vht = calc_vht(np.arange(0, rmax, rangegate))
+print('Virtual heights')
+print('%s' % str(vht[np.isfinite(vht)]))
 
 # How much data to expect?
 tera_day = sample_rate * sample_size_bytes * day_secs / terabyte_units 

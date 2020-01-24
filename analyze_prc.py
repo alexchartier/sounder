@@ -74,6 +74,8 @@ def periodic_convolution_matrix(envelope, rmin=0, rmax=100):
 B_cache = 0
 r_cache = 0
 B_cached = False
+
+
 def create_estimation_matrix(code, rmin=0, rmax=1000, cache=True):
     global B_cache
     global r_cache
@@ -307,10 +309,10 @@ if __name__ == '__main__':
             pwr = np.abs(res['spec'])
             M = 10.0 * np.log10(pwr)
             # calculate plot parameters
-            rg = 3e8 * np.arange(op.nranges) / sr / 1e3
+            rg = 2.99792458e8 * np.arange(op.nranges) / sr / 1e3
             ndop = op.anlen / op.codelen
             dop_hz = np.fft.fftshift(np.fft.fftfreq(int(ndop), d=op.codelen / sr))
-            dop_vel = (dop_hz / (tune_freq * 1E6)) * 3E8
+            dop_vel = (dop_hz / (tune_freq * 1E6)) * 2.99792458e8
 
             maxind = np.unravel_index(M.argmax(), M.shape)
             infostr = '%i   Freq: %02.2f: Max. value: %02.2f dB at %2.1f m/s, %2.1f km'\
