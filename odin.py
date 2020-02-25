@@ -920,6 +920,14 @@ class Thor(object):
             lock_fname=lock_fname,
         )
 
+        # Try turning on an LED if it's a Raspberry PI
+        try:
+            from gpiozero import LED
+            led = LED(17)
+            led.on()
+        except:
+            None
+
         # wait until flowgraph stops
         try:
             fg.wait()
@@ -931,6 +939,12 @@ class Thor(object):
         fg.wait()
         print('done')
         sys.stdout.flush()
+        
+        # Try turning off the LED 
+        try:
+            led.off()
+        except:
+            None
 
 
 def evalint(s):
