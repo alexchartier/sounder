@@ -395,6 +395,7 @@ class Thor(object):
             ),
         )
 
+        # freq_stepper.set_dev_time(usrp)
         # set clock and time source 
         try:
             sync_source = 'gpsdo'
@@ -456,7 +457,6 @@ class Thor(object):
 
         # set per-channel options
         # set command time so settings are synced
-        freq_stepper.set_dev_time(usrp)
         gpstime = datetime.utcfromtimestamp(usrp.get_mboard_sensor("gps_time"))
         gpstime_secs = (pytz.utc.localize(gpstime) - drf.util.epoch).total_seconds()
         COMMAND_DELAY = 0.2 
