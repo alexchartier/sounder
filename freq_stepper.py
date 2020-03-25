@@ -160,7 +160,6 @@ def set_dev_time(usrp):
         # 5)  Poll on usrp->get_time_last_pps() until a change is seen.
         pps = usrp.get_time_last_pps()
         while usrp.get_time_last_pps() == pps:
-            print('poll 5')
             time.sleep(0.1)
 
         # 6)  Sleep 200ms (allow NMEA string to propagate)
@@ -170,7 +169,7 @@ def set_dev_time(usrp):
             usrp.get_mboard_sensor("gps_time").to_real()
         ))
 
-    print('time set:')
+    print('time set')
 
 def get_freq_list(freq_list_fname):
     freq_list = {}
