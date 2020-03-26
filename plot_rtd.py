@@ -343,7 +343,7 @@ def calc_dist(alt1, lat1, lon1, alt2, lat2, lon2,):
     pt2 = wgs84.GeoPoint(latitude=lat2, longitude=lon2, z=alt2, degrees=True)
 
     # Great circle dist
-    dist_gc = np.sqrt(np.sum(pt1.delta_to(pt2).pvector ** 2)) / 1E3
+    # dist_gc = np.sqrt(np.sum(pt1.delta_to(pt2).pvector ** 2)) / 1E3
 
     # Straight-line dist
     dist_strt = np.sqrt(np.sum((pt1.to_ecef_vector().pvector - pt2.to_ecef_vector().pvector) ** 2)) / 1E3
